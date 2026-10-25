@@ -1,4 +1,4 @@
-const CACHE_NAME = 'boxkita-shell-v10-admin-areas';
+const CACHE_NAME = 'boxkita-shell-v12-role-dashboards';
 const SHELL = ['./', './index.html', './styles.css', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -17,7 +17,7 @@ self.addEventListener('fetch', event => {
     }).catch(() => caches.match('./index.html')));
     return;
   }
-  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
+  event.respondWith(caches.match(event.request, {ignoreSearch: true}).then(cached => cached || fetch(event.request).then(response => {
     if (response.ok) { const copy = response.clone(); caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)); }
     return response;
   })));

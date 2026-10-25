@@ -47,7 +47,7 @@ if (!IS_DEMO) {
 }
 
 const SERVICE_AREAS = ["Jakarta","Jakarta Pusat","Jakarta Utara","Jakarta Barat","Jakarta Selatan","Jakarta Timur","Kepulauan Seribu","Tangerang","Kota Tangerang","Kabupaten Tangerang","Tangerang Selatan","Serpong","BSD City","Ciputat","Pamulang","Pondok Aren","Depok","Bekasi","Kota Bekasi","Kabupaten Bekasi","Bogor","Kota Bogor","Kabupaten Bogor"];
-const SIM_STORAGE_KEY = 'boxkita_simulation_v10';
+const SIM_STORAGE_KEY = 'boxkita_simulation_v12';
 const LEGACY_SIM_STORAGE_KEY = 'boxkita_simulation_v9';
 const OLDER_SIM_STORAGE_KEY = 'boxkita_simulation_v5';
 function normalizeArea(area, fallback='Jakarta') {
@@ -108,7 +108,7 @@ function getSimulationState(){
 function persistSimulation(){if(!IS_DEMO||!simulationState)return;try{localStorage.setItem(SIM_STORAGE_KEY,JSON.stringify(simulationState));}catch(error){console.warn('Could not save simulation data',error);showToast('Penyimpanan browser penuh atau dinonaktifkan.');}}
 function simulationId(prefix){return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`.toUpperCase();}
 function localStamp(){return new Date().toISOString();}
-let products = [], partners = [], orders = [], applications = [], settlements = [], cart = {}, selectedCategory = 'all', currentAdmin = null, activeView = 'overview', lastOrderMessage = '', cachedModalSubmit = null;
+let products = [], partners = [], orders = [], applications = [], settlements = [], cart = {}, selectedCategory = 'all', currentAdmin = null, currentSessionUser = null, currentProfile = null, currentRole = null, activeView = 'overview', roleDashboardView = 'overview', lastOrderMessage = '', cachedModalSubmit = null, authRouteSequence = 0;
 const byId = id => document.getElementById(id);
 const money = value => 'Rp' + Math.round(Number(value || 0)).toLocaleString('id-ID');
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -195,16 +195,28 @@ byId('jumatBarokahBtn')?.addEventListener('click',()=>{selectedCategory='Jumat B
 byId('boxKitaBtn')?.addEventListener('click',()=>{selectedCategory='Box Kita';byId('searchInput').value='';byId('sortFilter').value='featured';byId('categoryFilter').value=selectedCategory;document.querySelectorAll('.category-chip').forEach(b=>b.classList.toggle('active',b.dataset.category===selectedCategory));renderProducts();byId('menu').scrollIntoView({behavior:'smooth'});});
 byId('categoryChips').addEventListener('click',e=>{const chip=e.target.closest('[data-category]');if(!chip)return;selectedCategory=chip.dataset.category;byId('categoryFilter').value=selectedCategory;document.querySelectorAll('.category-chip').forEach(b=>b.classList.toggle('active',b===chip));renderProducts();});
 byId('cartOpenBtn').addEventListener('click',()=>{renderCart();openModal('cartModal');});
-byId('adminOpenBtn').addEventListener('click',openAdminEntry); byId('footerAdminBtn').addEventListener('click',openAdminEntry);
-function openAdminEntry(){ if(IS_DEMO){currentAdmin={uid:'boxkita-demo-admin',email:'simulasi@boxkita.local',simulation:true};showAdmin();showToast('Dashboard simulasi aktif. Data tersimpan di browser ini.');return;} if(firebaseInitializationError||!auth){showToast('Firebase belum berhasil dimuat. Periksa koneksi internet dan konfigurasi Firebase, lalu muat ulang halaman.');return;} if(currentAdmin){showAdmin();return;}showAdminLoginPanel();openModal('loginModal'); }
+byId('accountOpenBtn').addEventListener('click',openAccountEntry); byId('footerAccountBtn').addEventListener('click',openAccountEntry);
+byId('adminDashboardEntry').addEventListener('click',()=>{if(currentRole==='admin'&&currentProfile?.active===true)showAdmin();});
+function openAccountEntry(){
+ if(currentRole==='admin'&&currentProfile?.active===true)return showAdmin();
+ if(currentRole==='customer'||currentRole==='partner'||currentRole==='partner_pending')return showRoleDashboard(currentRole);
+ showAccountLoginPanel();openModal('accountModal');
+}
+function openAdminEntry(){
+ if(IS_DEMO){currentAdmin={uid:'boxkita-demo-admin',email:'simulasi@boxkita.local',simulation:true};currentSessionUser=currentAdmin;currentProfile={role:'admin',active:true};currentRole='admin';setNavigationRole('admin');showAdmin();showToast('Dashboard simulasi aktif. Data tersimpan di browser ini.');return;}
+ if(firebaseInitializationError||!auth){showToast('Firebase belum berhasil dimuat. Periksa koneksi dan konfigurasi Firebase, lalu muat ulang halaman.');return;}
+ if(currentRole==='admin'&&currentProfile?.active===true&&currentAdmin){showAdmin();return;}
+ showAdminLoginPanel();openModal('loginModal');
+}
 window.boxKitaAdminOpen = openAdminEntry;
+byId('mobileAccountBtn').addEventListener('click',()=>{byId('mobileNav').classList.add('hidden');openAccountEntry();});
+byId('mobileAdminDashboardEntry').addEventListener('click',()=>{byId('mobileNav').classList.add('hidden');if(currentRole==='admin'&&currentProfile?.active===true)showAdmin();});
 document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>closeModal(btn.dataset.close)));
 document.addEventListener('click',e=>{const close=e.target.closest('[data-close]');if(close)closeModal(close.dataset.close);});
 document.querySelectorAll('.modal-backdrop').forEach(backdrop=>backdrop.addEventListener('click',e=>{if(e.target===backdrop)backdrop.classList.remove('show');}));
 byId('mobileMenuBtn').addEventListener('click',()=>byId('mobileNav').classList.toggle('hidden'));
 byId('mobileNav').addEventListener('click',e=>{if(e.target.closest('a'))byId('mobileNav').classList.add('hidden')});
-// Akses Pengelola juga tersedia di navigasi HP, karena tombol header disembunyikan pada layar kecil.
-byId('mobileAdminBtn')?.addEventListener('click',()=>{byId('mobileNav').classList.add('hidden');openAdminEntry();});
+// Portal akun pelanggan/mitra tersedia pada navigasi mobile. Akses admin memakai jalur tersembunyi (?portal=admin).
 byId('installBtn').addEventListener('click',installPWA); if(byId('footerInstallBtn'))byId('footerInstallBtn').addEventListener('click',e=>{e.preventDefault();installPWA();});
 let deferredInstall = null;
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredInstall=event;byId('installBtn').classList.remove('hidden');});
@@ -235,14 +247,26 @@ byId('checkoutForm').addEventListener('submit', async event=>{
    orderCode=createCode('BK');
    // Spark/free-tier mode: write a price-free order request directly to Firestore.
    // Public requests cannot choose prices, partner costs, margins, or stock values.
-   await addDoc(collection(db,'orders'),{
+   const orderRequest={
     orderCode,
     customer:{name:customer.name,phone:customer.phone,deliveryDate:customer.deliveryDate,deliveryArea:customer.deliveryArea,address:customer.address,notes:customer.notes},
     items:items.map(item=>({productId:String(item.productId),qty:Number(item.qty)})),
     status:'new',paymentStatus:'unpaid',paymentReference:'',settlementStatus:'pending',
     stockReserved:false,stockRestored:false,source:'public-web',
     createdAt:serverTimestamp(),updatedAt:serverTimestamp()
-   });
+   };
+   if(currentRole==='customer'&&auth?.currentUser?.uid===currentSessionUser?.uid)orderRequest.customerUid=currentSessionUser.uid;
+   const orderRef=doc(collection(db,'orders'));const orderBatch=writeBatch(db);orderBatch.set(orderRef,orderRequest);
+   if(orderRequest.customerUid){
+    const customerViewItems=rows.map(r=>({productId:String(r.product.id),name:String(r.product.name||'Menu BoxKita'),qty:Number(r.qty),unitPrice:Number(r.product.salePrice||0),lineTotal:Number(r.product.salePrice||0)*Number(r.qty)}));
+    orderBatch.set(doc(db,'customerOrderViews',orderRequest.customerUid,'orders',orderRef.id),{
+     orderId:orderRef.id,orderCode,customerUid:orderRequest.customerUid,
+     customer:{name:customer.name,phone:customer.phone,deliveryDate:customer.deliveryDate,deliveryArea:customer.deliveryArea,address:customer.address,notes:customer.notes},
+     items:customerViewItems,itemCount:customerViewItems.reduce((n,i)=>n+i.qty,0),total:customerViewItems.reduce((n,i)=>n+i.lineTotal,0),
+     status:'new',paymentStatus:'unpaid',deliveryDate:customer.deliveryDate,createdAt:serverTimestamp(),updatedAt:serverTimestamp()
+    });
+   }
+   await orderBatch.commit();
   }
   lastOrderMessage=`Halo BoxKita, saya ingin konfirmasi pesanan ${orderCode}. Nama: ${customer.name}; WA: ${customer.phone}; Wilayah: ${customer.deliveryArea}; Tanggal: ${customer.deliveryDate}; Alamat: ${customer.address}. Detail pesanan: ${rows.map(r=>`${r.product.name} x ${r.qty}`).join('; ')}. Total sementara ${money(cartTotal())}. Mohon konfirmasi stok, rekening resmi, dan ongkir.`;
   closeModal('cartModal'); byId('resultTitle').textContent='Pesanan berhasil dicatat';byId('resultText').textContent=IS_DEMO?'MODE SIMULASI: pesanan tersimpan di browser ini dan tampil di dashboard pengelola simulasi. Tidak ada pembayaran sungguhan.':'Pesanan kamu sudah tercatat. Tunggu konfirmasi ketersediaan, total akhir, dan detail pembayaran dari pengelola.';byId('resultCode').textContent=orderCode;openModal('resultModal');byId('resultWhatsAppBtn').textContent=isConfiguredWA()?'Kirim detail ke WhatsApp ↗':'Atur nomor WhatsApp pengelola';
@@ -251,19 +275,86 @@ byId('checkoutForm').addEventListener('submit', async event=>{
 });
 byId('resultWhatsAppBtn').addEventListener('click',()=>{if(!isConfiguredWA()){showToast('Ganti WA_ADMIN di public/app.js dengan nomor pengelola.');return;}window.open(`https://wa.me/${WA_ADMIN}?text=${encodeURIComponent(lastOrderMessage)}`,'_blank','noopener');});
 
-// Admin / protected data
+// Role-based sessions: menu pengelola is only exposed after Firestore confirms role=admin and active=true.
 async function verifyAdmin(user){
  if(!user||IS_DEMO)return false;
- const profile=await getDoc(doc(db,'users',user.uid));return profile.exists() && profile.data().role==='admin' && profile.data().active!==false;
+ const profile=await getDoc(doc(db,'users',user.uid));
+ const data=profile.exists()?profile.data():null;
+ return !!data&&data.role==='admin'&&data.active===true;
 }
-if(!IS_DEMO && auth && onAuthStateChanged){
- onAuthStateChanged(auth,async user=>{
-  if(!user){currentAdmin=null;hideAdmin();return;}
-  try{const allowed=await verifyAdmin(user);if(!allowed){await signOut(auth);currentAdmin=null;showToast('Akun ini belum memiliki hak administrator.');return;}currentAdmin=user;closeModal('loginModal');showAdmin();}
-  catch(error){console.error(error);await signOut(auth).catch(()=>{});showToast('Hak akses gagal diverifikasi.');}
- });
+function setNavigationRole(role){
+ const admin=role==='admin'&&currentProfile?.role==='admin'&&currentProfile?.active===true;
+ byId('adminDashboardEntry').classList.toggle('hidden',!admin);
+ byId('mobileAdminDashboardEntry').classList.toggle('hidden',!admin);
+ const accountBtn=byId('accountOpenBtn');
+ accountBtn.textContent=role==='customer'?'Dashboard Pelanggan':role==='partner'?'Dashboard Mitra':role==='partner_pending'?'Status Mitra':role==='admin'?'Akun Admin':'Akun / Login';
+ byId('mobileAccountBtn').textContent=role==='customer'?'👤 Dashboard Pelanggan':role==='partner'?'🍱 Dashboard Mitra':role==='partner_pending'?'⏳ Status Pendaftaran Mitra':'👤 Akun Pelanggan / Mitra';
 }
-byId('loginForm').addEventListener('submit',async e=>{e.preventDefault();if(IS_DEMO){currentAdmin={uid:'boxkita-demo-admin',email:'simulasi@boxkita.local',simulation:true};closeModal('loginModal');showAdmin();return showToast('Dashboard simulasi dibuka.');}if(firebaseInitializationError||!auth){showToast('Firebase SDK gagal dimuat. Periksa koneksi dan muat ulang halaman.');return;}const form=e.currentTarget;try{setBusy(true,'Memverifikasi akun…');await signInWithEmailAndPassword(auth,getVal(form,'email'),getVal(form,'password'));form.reset();}catch(error){console.error(error);showToast('Login gagal. Periksa email, password, dan pengaturan Firebase Authentication.');}finally{setBusy(false);}});
+function hideAllDashboards(){
+ byId('adminApp').classList.add('hidden');byId('roleDashboard').classList.add('hidden');
+ byId('publicApp').classList.remove('hidden');document.querySelector('.topbar').classList.remove('hidden');document.querySelector('.footer').classList.remove('hidden');
+ document.querySelector('.admin-sidebar').classList.remove('open');
+}
+function showAccountLoginPanel(){
+ byId('accountLoginForm').classList.remove('hidden');byId('customerRegisterForm').classList.add('hidden');byId('partnerRegisterForm').classList.add('hidden');
+}
+byId('showCustomerRegister').addEventListener('click',()=>{byId('accountLoginForm').classList.add('hidden');byId('customerRegisterForm').classList.remove('hidden');byId('partnerRegisterForm').classList.add('hidden');});
+byId('showPartnerRegister').addEventListener('click',()=>{byId('accountLoginForm').classList.add('hidden');byId('customerRegisterForm').classList.add('hidden');byId('partnerRegisterForm').classList.remove('hidden');});
+byId('customerBackToLogin').addEventListener('click',showAccountLoginPanel);byId('partnerBackToLogin').addEventListener('click',showAccountLoginPanel);
+async function readUserProfile(uid){
+ for(let attempt=0;attempt<4;attempt++){
+  const snap=await getDoc(doc(db,'users',uid));if(snap.exists())return snap.data();
+  if(attempt<3)await new Promise(resolve=>setTimeout(resolve,350));
+ }
+ return null;
+}
+async function handleAuthenticatedUser(user){
+ const sequence=++authRouteSequence;
+ if(!user){currentAdmin=null;currentSessionUser=null;currentProfile=null;currentRole=null;setNavigationRole(null);hideAllDashboards();return;}
+ try{
+  const profile=await readUserProfile(user.uid);if(sequence!==authRouteSequence)return;
+  if(!profile){currentAdmin=null;currentSessionUser=user;currentProfile=null;currentRole='unprovisioned';setNavigationRole(null);hideAllDashboards();closeModal('accountModal');showToast('Akun login ditemukan, tetapi profil BoxKita belum tersimpan. Coba login ulang atau hubungi pengelola.');return;}
+  currentSessionUser=user;currentProfile=profile;currentRole=String(profile.role||'');
+  if(profile.role==='admin'&&profile.active===true){currentAdmin=user;setNavigationRole('admin');closeModal('loginModal');closeModal('accountModal');showAdmin();return;}
+  currentAdmin=null;setNavigationRole(currentRole);
+  if(profile.role==='customer'&&profile.active===true){closeModal('accountModal');showRoleDashboard('customer');return;}
+  if(profile.role==='partner'&&profile.active===true){closeModal('accountModal');showRoleDashboard('partner');return;}
+  if(profile.role==='partner_pending'||profile.role==='partner'&&profile.active!==true){currentRole='partner_pending';setNavigationRole('partner_pending');closeModal('accountModal');showRoleDashboard('partner_pending');return;}
+  hideAllDashboards();showToast('Akun belum memiliki akses aktif. Hubungi pengelola BoxKita.');
+ }catch(error){console.error('Gagal membaca role akun:',error);if(sequence===authRouteSequence){hideAllDashboards();showToast('Akses akun belum dapat diverifikasi. Periksa koneksi dan Firestore Rules.');}}
+}
+if(!IS_DEMO&&auth&&onAuthStateChanged){onAuthStateChanged(auth,handleAuthenticatedUser);}
+
+// Customer and partner registration uses Firebase Authentication plus a self-owned, role-limited profile.
+byId('accountLoginForm').addEventListener('submit',async event=>{
+ event.preventDefault();if(IS_DEMO||firebaseInitializationError||!auth)return showToast('Firebase belum tersedia. Coba buka website yang sudah dipublikasikan melalui HTTPS.');
+ const form=event.currentTarget;try{setBusy(true,'Memverifikasi akun…');await signInWithEmailAndPassword(auth,getVal(form,'email'),getVal(form,'password'));form.reset();}
+ catch(error){console.error(error);showToast(error?.code==='auth/user-not-found'||error?.code==='auth/invalid-credential'?'Email atau password salah.':error?.message||'Login gagal.');}finally{setBusy(false);}
+});
+async function createRoleAccount(email,password,profile,partnerApplication=null){
+ const credential=await createUserWithEmailAndPassword(auth,email,password);const uid=credential.user.uid;
+ await setDoc(doc(db,'users',uid),{...profile,email,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
+ if(partnerApplication){await addDoc(collection(db,'partnerApplications'),{...partnerApplication,uid,status:'pending',createdAt:serverTimestamp(),source:'website'});}
+ await handleAuthenticatedUser(credential.user);
+ return uid;
+}
+byId('customerRegisterForm').addEventListener('submit',async event=>{
+ event.preventDefault();if(IS_DEMO||firebaseInitializationError||!auth)return showToast('Firebase belum tersedia.');
+ const form=event.currentTarget,email=getVal(form,'email').trim().toLowerCase(),password=getVal(form,'password'),confirmation=getVal(form,'confirmPassword');
+ if(password.length<8)return showToast('Gunakan password minimal 8 karakter.');if(password!==confirmation)return showToast('Konfirmasi password belum sama.');
+ try{setBusy(true,'Membuat akun pelanggan…');await createRoleAccount(email,password,{role:'customer',active:true,displayName:getVal(form,'displayName'),phone:getVal(form,'phone')});form.reset();showToast('Akun pelanggan berhasil dibuat.');}
+ catch(error){console.error(error);showToast(error?.code==='auth/email-already-in-use'?'Email sudah terdaftar. Silakan login.':error?.message||'Pendaftaran pelanggan gagal. Periksa Firebase Rules.');}finally{setBusy(false);}
+});
+byId('partnerRegisterForm').addEventListener('submit',async event=>{
+ event.preventDefault();if(IS_DEMO||firebaseInitializationError||!auth)return showToast('Firebase belum tersedia.');
+ const form=event.currentTarget,email=getVal(form,'email').trim().toLowerCase(),password=getVal(form,'password'),confirmation=getVal(form,'confirmPassword');
+ if(password.length<8)return showToast('Gunakan password minimal 8 karakter.');if(password!==confirmation)return showToast('Konfirmasi password belum sama.');
+ const application={businessName:getVal(form,'businessName'),contactName:getVal(form,'contactName'),phone:getVal(form,'phone'),area:getVal(form,'area'),capacity:getVal(form,'capacity'),specialty:getVal(form,'specialty'),notes:''};
+ try{setBusy(true,'Membuat akun dan mengirim pengajuan mitra…');await createRoleAccount(email,password,{role:'partner_pending',active:false,displayName:application.contactName,phone:application.phone,businessName:application.businessName},application);form.reset();showToast('Akun mitra dibuat. Status menunggu persetujuan pengelola.');}
+ catch(error){console.error(error);showToast(error?.code==='auth/email-already-in-use'?'Email sudah terdaftar. Coba login.':error?.message||'Pendaftaran mitra gagal. Periksa Rules Firestore.');}finally{setBusy(false);}
+});
+
+byId('loginForm').addEventListener('submit',async e=>{e.preventDefault();if(IS_DEMO){currentAdmin={uid:'boxkita-demo-admin',email:'simulasi@boxkita.local',simulation:true};currentSessionUser=currentAdmin;currentProfile={role:'admin',active:true};currentRole='admin';setNavigationRole('admin');closeModal('loginModal');showAdmin();return showToast('Dashboard simulasi dibuka.');}if(firebaseInitializationError||!auth){showToast('Firebase SDK gagal dimuat. Periksa koneksi dan muat ulang halaman.');return;}const form=e.currentTarget;try{setBusy(true,'Memverifikasi akun…');await signInWithEmailAndPassword(auth,getVal(form,'email'),getVal(form,'password'));form.reset();}catch(error){console.error(error);showToast('Login gagal. Periksa email, password, dan pengaturan Firebase Authentication.');}finally{setBusy(false);}});
 function showAdminLoginPanel(){
   byId('loginForm').classList.remove('hidden');
   byId('toggleAdminRegister').classList.remove('hidden');
@@ -323,16 +414,86 @@ byId('copyAdminUidBtn').addEventListener('click',async()=>{
 });
 byId('returnAdminLoginAfterRegister').addEventListener('click',showAdminLoginPanel);
 
-byId('logoutBtn').addEventListener('click',async()=>{if(auth)await signOut(auth);currentAdmin=null;hideAdmin();showToast('Kamu sudah keluar dari dashboard.');});
+byId('logoutBtn').addEventListener('click',async()=>{if(auth)await signOut(auth);currentAdmin=null;currentSessionUser=null;currentProfile=null;currentRole=null;setNavigationRole(null);hideAdmin();showToast('Kamu sudah keluar dari dashboard.');});
 byId('backToStore').addEventListener('click',hideAdmin);
+byId('roleBackToStore').addEventListener('click',hideRoleDashboard);
+byId('roleLogoutBtn').addEventListener('click',async()=>{if(auth)await signOut(auth);currentSessionUser=null;currentProfile=null;currentRole=null;currentAdmin=null;setNavigationRole(null);hideRoleDashboard();showToast('Kamu sudah keluar dari akun.');});
+byId('roleBrandHome').addEventListener('click',e=>{e.preventDefault();hideRoleDashboard();window.location.hash='home';});
+byId('roleDashboardNav').addEventListener('click',e=>{const b=e.target.closest('[data-role-view]');if(!b)return;roleDashboardView=b.dataset.roleView;renderRoleDashboard();});
 byId('adminMobileMenuBtn').addEventListener('click',()=>document.querySelector('.admin-sidebar').classList.toggle('open'));
 document.querySelectorAll('.admin-nav[data-view]').forEach(button=>button.addEventListener('click',()=>{activeView=button.dataset.view;document.querySelectorAll('.admin-nav[data-view]').forEach(b=>b.classList.toggle('active',b===button));document.querySelector('.admin-sidebar').classList.remove('open');renderAdminView();}));
 byId('refreshAdminBtn').addEventListener('click',refreshAdminData);
 const resetSimBtn=byId('resetSimulationBtn');
 if(resetSimBtn){if(!IS_DEMO)resetSimBtn.classList.add('hidden');resetSimBtn.addEventListener('click',async()=>{if(!IS_DEMO)return showToast('Reset simulasi hanya tersedia saat Firebase belum dikonfigurasi.');if(!confirm('Reset seluruh data simulasi pada browser ini? Pesanan, pendaftaran, dan perubahan menu akan dihapus lalu data contoh dipulihkan.'))return;localStorage.removeItem(SIM_STORAGE_KEY);localStorage.removeItem(LEGACY_SIM_STORAGE_KEY);localStorage.removeItem(OLDER_SIM_STORAGE_KEY);simulationState=null;cart={};updateCartBadge();await loadCatalog();if(currentAdmin){activeView='overview';document.querySelectorAll('.admin-nav[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view==='overview'));await refreshAdminData();}showToast('Data simulasi direset ke kondisi awal.');});}
 
-function showAdmin(){byId('publicApp').classList.add('hidden');document.querySelector('.topbar').classList.add('hidden');document.querySelector('.footer').classList.add('hidden');byId('adminApp').classList.remove('hidden');byId('adminEmail').textContent=currentAdmin?.email||'Pengelola';refreshAdminData();window.scrollTo({top:0,behavior:'instant'});}
-function hideAdmin(){byId('adminApp').classList.add('hidden');byId('publicApp').classList.remove('hidden');document.querySelector('.topbar').classList.remove('hidden');document.querySelector('.footer').classList.remove('hidden');document.querySelector('.admin-sidebar').classList.remove('open');window.scrollTo({top:0,behavior:'instant'});}
+function showAdmin(){
+ if(!IS_DEMO&&!(currentAdmin&&currentProfile?.role==='admin'&&currentProfile?.active===true)){hideAdmin();showToast('Dashboard pengelola hanya tersedia untuk akun admin yang aktif.');return;}
+ byId('roleDashboard').classList.add('hidden');byId('publicApp').classList.add('hidden');document.querySelector('.topbar').classList.add('hidden');document.querySelector('.footer').classList.add('hidden');byId('adminApp').classList.remove('hidden');byId('adminEmail').textContent=currentAdmin?.email||'Pengelola';refreshAdminData();window.scrollTo({top:0,behavior:'instant'});
+}
+function hideAdmin(){byId('adminApp').classList.add('hidden');byId('roleDashboard').classList.add('hidden');byId('publicApp').classList.remove('hidden');document.querySelector('.topbar').classList.remove('hidden');document.querySelector('.footer').classList.remove('hidden');document.querySelector('.admin-sidebar').classList.remove('open');window.scrollTo({top:0,behavior:'instant'});}
+function hideRoleDashboard(){byId('roleDashboard').classList.add('hidden');byId('adminApp').classList.add('hidden');byId('publicApp').classList.remove('hidden');document.querySelector('.topbar').classList.remove('hidden');document.querySelector('.footer').classList.remove('hidden');window.scrollTo({top:0,behavior:'instant'});}
+function showRoleDashboard(role){
+ if(!currentSessionUser||!currentProfile)return openAccountEntry();
+ roleDashboardView='overview';
+ if(role==='admin')return showAdmin();
+ byId('adminApp').classList.add('hidden');byId('publicApp').classList.add('hidden');document.querySelector('.topbar').classList.add('hidden');document.querySelector('.footer').classList.add('hidden');byId('roleDashboard').classList.remove('hidden');
+ const isPartner=role==='partner'||role==='partner_pending';
+ byId('roleDashboardName').textContent=role==='customer'?'Dashboard Pelanggan':role==='partner'?'Dashboard Mitra':'Status Pendaftaran Mitra';
+ byId('roleDashboardEmail').textContent=currentSessionUser.email||'';byId('roleSidebarName').textContent=currentProfile.displayName||currentProfile.businessName||currentSessionUser.email||'Akun BoxKita';
+ byId('roleSidebarRole').textContent=role==='customer'?'Pelanggan':role==='partner'?'Mitra aktif':'Mitra · menunggu persetujuan';byId('roleAvatar').textContent=isPartner?'🍱':'👤';byId('roleBrandSub').textContent=isPartner?'DASHBOARD MITRA':'DASHBOARD PELANGGAN';
+ const nav=role==='customer'?[['overview','Ringkasan','▦'],['orders','Pesanan Saya','🧾'],['favorites','Favorit Saya','♡'],['profile','Profil Saya','👤']]:role==='partner'?[['overview','Ringkasan','▦'],['orders','Pesanan Mitra','🧾'],['products','Menu Saya','🍱'],['profile','Profil Usaha','🏪']]:[['overview','Status Pengajuan','⏳'],['profile','Data Pendaftaran','🏪']];
+ byId('roleDashboardNav').innerHTML=nav.map(([id,label,icon])=>`<button class="role-nav-item ${id===roleDashboardView?'active':''}" data-role-view="${id}" type="button"><span>${icon}</span>${label}</button>`).join('');
+ renderRoleDashboard();window.scrollTo({top:0,behavior:'instant'});
+}
+function roleDashboardHeader(title,subtitle,action=''){return `<div class="role-page-title"><div><span>BOXKITA · AREA AKUN</span><h1>${escapeHtml(title)}</h1><p>${escapeHtml(subtitle)}</p></div>${action}</div>`;}
+function roleOrderCard(order,partnerMode=false){
+ const items=Array.isArray(order.items)?order.items:[];const details=items.map(i=>`${escapeHtml(i.name||i.productId||'Menu')} × ${Number(i.qty||0)}`).join(' · ')||'Menunggu rincian dan konfirmasi pengelola';
+ return `<article class="role-order-card"><div class="role-order-card-head"><div><span class="role-order-code">${escapeHtml(order.orderCode||order.id||'Pesanan')}</span><b>${money(partnerMode?(order.partnerCostTotal||0):(order.total||0))}</b><small>${partnerMode?'Nilai porsi mitra':'Total pesanan'}</small></div><span class="${statusClass(order.status)}">${escapeHtml(statusLabel(order.status))}</span></div><p>${details}</p><div class="role-order-meta"><span>📅 ${formatDate(order.deliveryDate||order.createdAt)}</span><span>📍 ${escapeHtml(order.customer?.deliveryArea||'Area akan dikonfirmasi')}</span><span>💳 ${escapeHtml(statusLabel(order.paymentStatus))}</span></div>${partnerMode&&order.customer?.address?`<div class="role-order-address"><b>Alamat pengantaran</b><span>${escapeHtml(order.customer.address)}</span><small>Kontak pemesan: ${escapeHtml(order.customer?.phone||'—')}</small></div>`:''}</article>`;
+}
+async function renderRoleDashboard(){
+ const host=byId('roleDashboardContent');if(!currentSessionUser||!currentProfile){host.innerHTML='<p>Akun tidak aktif. Silakan login kembali.</p>';return;}
+ const role=currentRole,view=roleDashboardView;
+ byId('roleDashboardNav').querySelectorAll('[data-role-view]').forEach(b=>b.classList.toggle('active',b.dataset.roleView===view));
+ host.innerHTML='<div class="role-loading"><span class="spinner"></span>Memuat data akun…</div>';
+ try{
+  if(role==='partner_pending'){
+   if(view==='profile')host.innerHTML=roleDashboardHeader('Data pendaftaran','Data yang kamu kirim saat mendaftar sebagai mitra.')+`<div class="role-panel"><dl class="role-profile-grid"><dt>Nama usaha</dt><dd>${escapeHtml(currentProfile.businessName||'—')}</dd><dt>Nama penanggung jawab</dt><dd>${escapeHtml(currentProfile.displayName||'—')}</dd><dt>Nomor WhatsApp</dt><dd>${escapeHtml(currentProfile.phone||'—')}</dd><dt>Email login</dt><dd>${escapeHtml(currentSessionUser.email||'—')}</dd></dl></div>`;
+   else host.innerHTML=roleDashboardHeader('Pengajuan sedang ditinjau','Akun mitra belum aktif. Pengelola akan menghubungi kamu setelah meninjau kelengkapan usaha.')+`<div class="role-pending-card"><span>⏳</span><h2>Menunggu persetujuan BoxKita</h2><p>Setelah pengelola menyetujui pendaftaran, akun ini akan berubah menjadi Dashboard Mitra. Kamu belum dapat melihat pesanan atau data operasional mitra lain.</p><div class="role-status-chip">STATUS: MENUNGGU PERSETUJUAN</div><button type="button" class="btn btn-primary" data-refresh-role style="margin-top:16px">↻ Perbarui status</button></div>`;
+   return;
+  }
+  if(role==='customer'){
+   let customerOrders=[];if(!IS_DEMO&&db){const snap=await getDocs(collection(db,'customerOrderViews',currentSessionUser.uid,'orders'));customerOrders=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>dateMs(b.createdAt)-dateMs(a.createdAt));}
+   const favorites=(()=>{try{return JSON.parse(localStorage.getItem('boxkita_favorites')||'[]')}catch(_){return [];}})();
+   if(view==='overview')host.innerHTML=roleDashboardHeader(`Halo, ${currentProfile.displayName||'Pelanggan'} 👋`,'Pantau pesananmu dan kelola pilihan menu favorit.')+`<div class="role-kpi-grid"><div class="role-kpi"><span>🧾</span><b>${customerOrders.length}</b><small>Total pesanan akun</small></div><div class="role-kpi"><span>⏳</span><b>${customerOrders.filter(o=>!['delivered','cancelled'].includes(o.status)).length}</b><small>Masih diproses</small></div><div class="role-kpi"><span>♡</span><b>${favorites.length}</b><small>Menu favorit di perangkat ini</small></div></div><div class="role-panel"><div class="role-panel-head"><div><h2>Pesanan terbaru</h2><p>Pesanan yang dibuat saat kamu login dengan akun ini.</p></div><button class="btn btn-ghost btn-sm" data-role-view="orders">Lihat semua</button></div>${customerOrders.slice(0,3).map(o=>roleOrderCard(o)).join('')||'<div class="role-empty">Belum ada pesanan yang terkait dengan akun ini. Kembali ke toko dan pesan saat login untuk melihat statusnya di sini.</div>'}</div>`;
+   else if(view==='orders')host.innerHTML=roleDashboardHeader('Pesanan Saya','Status dan riwayat pesanan yang tercatat atas akun ini.')+`<div class="role-order-list">${customerOrders.map(o=>roleOrderCard(o)).join('')||'<div class="role-empty">Belum ada riwayat pesanan.</div>'}</div>`;
+   else if(view==='favorites'){
+    const favProducts=products.filter(p=>favorites.includes(p.id));host.innerHTML=roleDashboardHeader('Menu Favorit','Daftar favorit disimpan pada browser/perangkat ini.')+`<div class="role-favorite-grid">${favProducts.map(p=>`<article class="role-favorite-card"><span>${escapeHtml(p.emoji||'🍱')}</span><div><b>${escapeHtml(p.name)}</b><small>${money(p.salePrice)} / box</small></div><button class="btn btn-ghost btn-sm" data-customer-fav-remove="${escapeHtml(p.id)}">Hapus</button></article>`).join('')||'<div class="role-empty">Belum ada menu favorit. Pilih simbol hati pada menu di toko.</div>'}</div>`;
+   } else host.innerHTML=roleDashboardHeader('Profil Saya','Informasi akun pelanggan.')+`<div class="role-panel"><dl class="role-profile-grid"><dt>Nama</dt><dd>${escapeHtml(currentProfile.displayName||'—')}</dd><dt>Email</dt><dd>${escapeHtml(currentSessionUser.email||'—')}</dd><dt>WhatsApp</dt><dd>${escapeHtml(currentProfile.phone||'—')}</dd><dt>Status akun</dt><dd><span class="role-status-chip">AKTIF</span></dd></dl></div>`;
+   return;
+  }
+  if(role==='partner'){
+   const partnerId=currentProfile.partnerId;if(!partnerId)throw new Error('Akun mitra aktif belum terhubung ke data mitra. Hubungi pengelola.');
+   const [productSnap,orderSnap,partnerSnap,settlementSnap]=await Promise.all([
+    getDocs(query(collection(db,'catalog'),where('partnerId','==',partnerId))),
+    getDocs(collection(db,'partnerOrderViews',partnerId,'orders')),
+    getDoc(doc(db,'partners',partnerId)),
+    getDocs(query(collection(db,'settlements'),where('partnerId','==',partnerId)))
+   ]);
+   const partner=partnerSnap.exists()?partnerSnap.data():{};const myProducts=productSnap.docs.map(d=>({id:d.id,...d.data()}));const myOrders=orderSnap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>dateMs(b.createdAt)-dateMs(a.createdAt));const mySettlements=settlementSnap.docs.map(d=>({id:d.id,...d.data()}));
+   if(view==='overview')host.innerHTML=roleDashboardHeader(`Halo, ${partner.name||currentProfile.businessName||'Mitra'} 👋`,'Pantau pesanan yang sudah ditugaskan, menu, dan pencatatan pembayaran usahamu.')+`<div class="role-kpi-grid"><div class="role-kpi"><span>🍱</span><b>${myProducts.length}</b><small>Menu terdaftar</small></div><div class="role-kpi"><span>🧾</span><b>${myOrders.filter(o=>!['delivered','cancelled'].includes(o.status)).length}</b><small>Pesanan berjalan</small></div><div class="role-kpi"><span>💸</span><b>${money(mySettlements.reduce((s,x)=>s+Number(x.amount||0),0))}</b><small>Total pembayaran tercatat</small></div></div><div class="role-panel"><div class="role-panel-head"><div><h2>Pesanan terbaru</h2><p>Hanya pesanan yang telah ditugaskan ke mitra ini.</p></div><button class="btn btn-ghost btn-sm" data-role-view="orders">Lihat semua</button></div>${myOrders.slice(0,3).map(o=>roleOrderCard(o,true)).join('')||'<div class="role-empty">Belum ada pesanan yang ditugaskan kepada usaha ini.</div>'}</div>`;
+   else if(view==='orders')host.innerHTML=roleDashboardHeader('Pesanan Mitra','Lihat detail produksi dan pengantaran yang sudah ditugaskan ke dapurmu.')+`<div class="role-order-list">${myOrders.map(o=>roleOrderCard(o,true)).join('')||'<div class="role-empty">Belum ada pesanan mitra.</div>'}</div>`;
+   else if(view==='products')host.innerHTML=roleDashboardHeader('Menu Saya','Status dan stok menu milik usaha yang terhubung dengan akun ini.')+`<div class="role-favorite-grid">${myProducts.map(p=>`<article class="role-favorite-card"><span>${escapeHtml(p.emoji||'🍱')}</span><div><b>${escapeHtml(p.name||'Menu tanpa nama')}</b><small>Stok: ${Number(p.stock||0)} · Harga tayang: ${money(p.salePrice||0)} · ${escapeHtml(statusLabel(p.status))}</small></div></article>`).join('')||'<div class="role-empty">Menu usaha belum ditautkan. Minta pengelola menambahkan menu ke mitra yang benar.</div>'}</div>`;
+   else host.innerHTML=roleDashboardHeader('Profil Usaha','Informasi usaha yang tercatat di BoxKita.')+`<div class="role-panel"><dl class="role-profile-grid"><dt>Nama usaha</dt><dd>${escapeHtml(partner.name||currentProfile.businessName||'—')}</dd><dt>Penanggung jawab</dt><dd>${escapeHtml(partner.contactName||currentProfile.displayName||'—')}</dd><dt>Area</dt><dd>${escapeHtml(partner.area||'—')}</dd><dt>Kapasitas</dt><dd>${escapeHtml(partner.capacity||'—')}</dd><dt>Spesialisasi</dt><dd>${escapeHtml(partner.specialty||'—')}</dd><dt>Email login</dt><dd>${escapeHtml(currentSessionUser.email||'—')}</dd><dt>Status mitra</dt><dd><span class="role-status-chip">${escapeHtml(statusLabel(partner.status||'active'))}</span></dd></dl></div>`;
+   return;
+  }
+  host.innerHTML=roleDashboardHeader('Dashboard tidak tersedia','Peran akun belum dikenali. Hubungi pengelola BoxKita.');
+ }catch(error){console.error('Role dashboard data load:',error);host.innerHTML=roleDashboardHeader('Data belum termuat','Periksa koneksi atau aturan akses Firestore.')+`<div class="role-empty">${escapeHtml(error.message||'Terjadi kesalahan saat memuat dashboard.')}</div>`;}
+}
+byId('roleDashboardContent').addEventListener('click',e=>{
+ const refresh=e.target.closest('[data-refresh-role]');if(refresh&&currentSessionUser){handleAuthenticatedUser(currentSessionUser);return;}
+ const nav=e.target.closest('[data-role-view]');if(nav){roleDashboardView=nav.dataset.roleView;renderRoleDashboard();return;}
+ const remove=e.target.closest('[data-customer-fav-remove]');if(remove){let favorites=[];try{favorites=JSON.parse(localStorage.getItem('boxkita_favorites')||'[]')}catch(_){}favorites=favorites.filter(id=>id!==remove.dataset.customerFavRemove);localStorage.setItem('boxkita_favorites',JSON.stringify(favorites));renderRoleDashboard();showToast('Menu dihapus dari favorit.');}
+});
 async function refreshAdminData(){if(!currentAdmin)return;setBusy(true,'Memuat data dashboard…');try{
  if(IS_DEMO){const sim=getSimulationState();const resolvePartnerName=p=>p.partnerName||p.sellerName||sim.partners.find(x=>x.id===p.partnerId)?.name||'Mitra BoxKita';window.adminProducts=sim.products.map(p=>({...p,partnerName:resolvePartnerName(p)}));window.adminCatalogCache=sim.products.map(({costPrice,...p})=>({...p,sellerName:resolvePartnerName(p)}));products=sim.products.map(({costPrice,...p})=>({...p,sellerName:resolvePartnerName(p)}));partners=sim.partners.map(p=>({...p}));orders=sim.orders.map(o=>({...o}));applications=sim.applications.map(a=>({...a}));settlements=sim.settlements.map(s=>({...s}));byId('pendingOrderBadge').textContent=orders.filter(o=>['new','confirmed'].includes(o.status)).length;byId('pendingPartnerBadge').textContent=applications.filter(a=>a.status==='pending').length;byId('simulationBadge')?.removeAttribute('hidden');renderAdminView();return;}
  const names=['products','partners','orders','partnerApplications','settlements'];const snaps=await Promise.all(names.map(name=>getDocs(collection(db,name))));
@@ -451,7 +612,7 @@ function openOrderStatusForm(o){const statusOpts=['new','confirmed','preparing',
    const reserve=(status==='confirmed'&&!current.stockReserved);const restore=(status==='cancelled'&&current.stockReserved&&!current.stockRestored);
    if(reserve&&current.paymentStatus==='refunded')throw new Error('Pesanan dengan refund tidak dapat dikonfirmasi.');
    let nextItems=currentItems.map(i=>({...i}));let nextTotal=Number(current.total||0),nextPartnerCost=Number(current.partnerCostTotal||0),nextMargin=Number(current.platformMargin||0),nextItemCount=Number(current.itemCount||currentItems.reduce((n,i)=>n+Number(i.qty||0),0));
-   let nextStockReserved=Boolean(current.stockReserved),nextStockRestored=Boolean(current.stockRestored);
+   let nextStockReserved=Boolean(current.stockReserved),nextStockRestored=Boolean(current.stockRestored),nextAssignedPartnerIds=Array.isArray(current.assignedPartnerIds)?current.assignedPartnerIds:[];
    const productIds=[...new Set(currentItems.map(i=>String(i.productId||'')).filter(Boolean))];
    if((reserve||restore)&&!productIds.length)throw new Error('Pesanan tidak memiliki rincian menu.');
    const refs=productIds.map(id=>({id,productRef:doc(db,'products',id),catalogRef:doc(db,'catalog',id)}));
@@ -464,21 +625,28 @@ function openOrderStatusForm(o){const statusOpts=['new','confirmed','preparing',
     const aggregated=new Map();currentItems.forEach(i=>{const id=String(i.productId||'');const qty=Number(i.qty||0);if(!id||!Number.isInteger(qty)||qty<1)throw new Error('Rincian jumlah menu tidak valid.');aggregated.set(id,(aggregated.get(id)||0)+qty);});
     nextItems=[];let total=0,partnerCost=0;
     for(const [id,qty] of aggregated){const stock=stockById[id];if(!stock||!stock.productSnap.exists()||!stock.catalogSnap.exists())throw new Error(`Menu ${id} tidak ditemukan. Muat ulang data menu.`);const p=stock.productSnap.data(),c=stock.catalogSnap.data();if(p.status!=='active'||c.status!=='active')throw new Error(`Menu ${c.name||p.name||id} sedang nonaktif.`);const partnerId=p.partnerId;if(!partnerId||partnerStatus[partnerId]!=='active')throw new Error(`Mitra untuk ${c.name||p.name||id} belum aktif.`);const available=Math.min(Number(p.stock||0),Number(c.stock||0));if(available<qty)throw new Error(`Stok ${c.name||p.name||id} tidak cukup. Tersedia ${available} box.`);const unitPrice=Number(c.salePrice??p.salePrice??0),costPrice=Number(p.costPrice??0);if(!Number.isSafeInteger(unitPrice)||!Number.isSafeInteger(costPrice)||unitPrice<=0||costPrice<0||unitPrice<costPrice)throw new Error(`Harga menu ${c.name||p.name||id} belum valid.`);const partnerName=partnerRefs.length? (partnerRefs.find(r=>r.id===partnerId)?.id===partnerId?partnerSnaps[partnerIds.indexOf(partnerId)].data().name:'Mitra BoxKita'):'Mitra BoxKita';const lineTotal=unitPrice*qty,partnerCostTotal=costPrice*qty,platformMargin=lineTotal-partnerCostTotal;nextItems.push({productId:id,name:c.name||p.name||`Menu ${id}`,partnerId,partnerName,qty,unitPrice,costPrice,lineTotal,partnerCostTotal,platformMargin,settlementStatus:'pending'});total+=lineTotal;partnerCost+=partnerCostTotal;tx.update(stock.productRef,{stock:available-qty,updatedAt:serverTimestamp()});tx.update(stock.catalogRef,{stock:available-qty,updatedAt:serverTimestamp()});}
-    nextTotal=total;nextPartnerCost=partnerCost;nextMargin=total-partnerCost;nextItemCount=nextItems.reduce((n,i)=>n+i.qty,0);nextStockReserved=true;nextStockRestored=false;
+    nextTotal=total;nextPartnerCost=partnerCost;nextMargin=total-partnerCost;nextItemCount=nextItems.reduce((n,i)=>n+i.qty,0);nextStockReserved=true;nextStockRestored=false;nextAssignedPartnerIds=[...new Set(nextItems.map(i=>i.partnerId).filter(Boolean))];
    } else if(restore){
     for(const stock of stockRows){if(!stock.productSnap.exists()||!stock.catalogSnap.exists())continue;const qty=currentItems.filter(i=>String(i.productId)===stock.id).reduce((n,i)=>n+Number(i.qty||0),0);tx.update(stock.productRef,{stock:Number(stock.productSnap.get('stock')||0)+qty,updatedAt:serverTimestamp()});tx.update(stock.catalogRef,{stock:Number(stock.catalogSnap.get('stock')||0)+qty,updatedAt:serverTimestamp()});}
     nextStockRestored=true;
    }
-   const patch={status,paymentStatus,paymentReference,adminNote,updatedAt:serverTimestamp(),lastUpdatedBy:currentAdmin.uid,stockReserved:nextStockReserved,stockRestored:nextStockRestored};
+   const patch={status,paymentStatus,paymentReference,adminNote,updatedAt:serverTimestamp(),lastUpdatedBy:currentAdmin.uid,stockReserved:nextStockReserved,stockRestored:nextStockRestored,assignedPartnerIds:nextAssignedPartnerIds};
    if(reserve){Object.assign(patch,{items:nextItems,total:nextTotal,partnerCostTotal:nextPartnerCost,partnerPayoutTotal:nextPartnerCost,platformMargin:nextMargin,itemCount:nextItemCount});}
    else if(current.total!==undefined){Object.assign(patch,{total:nextTotal,partnerCostTotal:nextPartnerCost,partnerPayoutTotal:Number(current.partnerPayoutTotal??nextPartnerCost),platformMargin:nextMargin,itemCount:nextItemCount});}
+   if(reserve){
+    if(current.customerUid){const customerViewRef=doc(db,'customerOrderViews',current.customerUid,'orders',o.id);tx.set(customerViewRef,{orderId:o.id,orderCode:current.orderCode||o.id,customerUid:current.customerUid,customer:{name:current.customer?.name||'',phone:current.customer?.phone||'',deliveryDate:current.customer?.deliveryDate||current.deliveryDate||'',deliveryArea:current.customer?.deliveryArea||'',address:current.customer?.address||'',notes:current.customer?.notes||current.notes||''},items:nextItems.map(i=>({productId:i.productId,name:i.name,qty:i.qty,unitPrice:i.unitPrice,lineTotal:i.lineTotal})),itemCount:nextItemCount,total:nextTotal,status,paymentStatus,deliveryDate:current.deliveryDate||current.customer?.deliveryDate||'',createdAt:current.createdAt||serverTimestamp(),updatedAt:serverTimestamp()},{merge:true});}
+    for(const partnerId of nextAssignedPartnerIds){const partnerItems=nextItems.filter(i=>i.partnerId===partnerId);const partnerOrderRef=doc(db,'partnerOrderViews',partnerId,'orders',o.id);tx.set(partnerOrderRef,{orderId:o.id,orderCode:current.orderCode||o.id,partnerId,partnerName:partnerItems[0]?.partnerName||'Mitra BoxKita',items:partnerItems.map(i=>({productId:i.productId,name:i.name,qty:i.qty})),partnerCostTotal:partnerItems.reduce((sum,i)=>sum+Number(i.partnerCostTotal||0),0),customer:{name:current.customer?.name||'',phone:current.customer?.phone||'',deliveryDate:current.customer?.deliveryDate||current.deliveryDate||'',deliveryArea:current.customer?.deliveryArea||'',address:current.customer?.address||'',notes:current.customer?.notes||current.notes||''},status,paymentStatus,deliveryDate:current.deliveryDate||current.customer?.deliveryDate||'',createdAt:current.createdAt||serverTimestamp(),updatedAt:serverTimestamp()},{merge:true});}
+   } else {
+    if(current.customerUid){const customerViewRef=doc(db,'customerOrderViews',current.customerUid,'orders',o.id);tx.set(customerViewRef,{status,paymentStatus,deliveryDate:current.deliveryDate||current.customer?.deliveryDate||'',updatedAt:serverTimestamp()},{merge:true});}
+    for(const partnerId of nextAssignedPartnerIds){const partnerOrderRef=doc(db,'partnerOrderViews',partnerId,'orders',o.id);tx.set(partnerOrderRef,{status,paymentStatus,deliveryDate:current.deliveryDate||current.customer?.deliveryDate||'',updatedAt:serverTimestamp()},{merge:true});}
+   }
    tx.update(orderRef,patch);
   });
   closeModal('formModal');showToast('Status pesanan diperbarui di Firestore (paket gratis).');await refreshAdminData();await loadCatalog();
  }finally{setBusy(false);}},'OPERASIONAL PESANAN');openModal('formModal');}
 async function toggleProduct(p){const status=p.status==='active'?'paused':'active';if(!confirm(`${status==='active'?'Aktifkan':'Nonaktifkan'} menu “${p.name}”?`))return;setBusy(true,'Memperbarui katalog…');try{if(IS_DEMO){const sim=getSimulationState(),item=sim.products.find(x=>x.id===p.id);if(item){item.status=status;item.updatedAt=localStamp();persistSimulation();}showToast('Status menu diperbarui di simulasi.');await refreshAdminData();await loadCatalog();return;}const batch=writeBatch(db);batch.update(doc(db,'products',p.id),{status,updatedAt:serverTimestamp()});batch.update(doc(db,'catalog',p.id),{status,updatedAt:serverTimestamp()});await batch.commit();showToast('Status menu diperbarui.');await refreshAdminData();await loadCatalog();}catch(error){showToast(error.message||'Gagal mengubah status menu.');}finally{setBusy(false);}}
 async function togglePartner(p){const status=p.status==='active'?'paused':'active';if(!confirm(`${status==='active'?'Aktifkan':'Nonaktifkan'} mitra “${p.name}”?`))return;try{setBusy(true,'Memperbarui data mitra…');if(IS_DEMO){const sim=getSimulationState(),partner=sim.partners.find(x=>x.id===p.id);if(partner){partner.status=status;partner.updatedAt=localStamp();sim.products.filter(x=>x.partnerId===p.id).forEach(x=>{x.status=status;x.updatedAt=localStamp();});persistSimulation();}showToast('Status mitra dan menunya diperbarui di simulasi.');await refreshAdminData();await loadCatalog();return;}const catalogRows=(window.adminCatalogCache||[]).filter(x=>x.partnerId===p.id);const batch=writeBatch(db);batch.update(doc(db,'partners',p.id),{status,updatedAt:serverTimestamp()});batch.set(doc(db,'partnerDirectory',p.id),{name:p.name,area:normalizeArea(p.area||'Semua wilayah'),specialty:p.specialty||'',status,updatedAt:serverTimestamp()},{merge:true});catalogRows.forEach(c=>{batch.update(doc(db,'catalog',c.id),{status:status==='active'?'active':'paused',updatedAt:serverTimestamp()});batch.update(doc(db,'products',c.id),{status:status==='active'?'active':'paused',updatedAt:serverTimestamp()});});await batch.commit();showToast('Status mitra dan menunya diperbarui.');await refreshAdminData();await loadCatalog();}catch(error){console.error(error);showToast(error.message||'Gagal memperbarui mitra.');}finally{setBusy(false);}}
-async function approveApplication(a){if(!confirm(`Setujui ${a.businessName||a.name} sebagai mitra?`))return;setBusy(true,'Menyetujui mitra…');try{if(IS_DEMO){const sim=getSimulationState(),partnerId=simulationId('MITRA'),newPartner={id:partnerId,name:a.businessName||a.name,contactName:a.contactName||'',phone:a.phone||'',area:normalizeArea(a.area||'Semua wilayah'),capacity:a.capacity||'',specialty:a.specialty||'',notes:a.notes||'',bankName:'',bankAccountName:'',bankAccountNo:'',status:'active',createdAt:localStamp(),updatedAt:localStamp(),applicationId:a.id};sim.partners.push(newPartner);const application=sim.applications.find(x=>x.id===a.id);if(application){application.status='approved';application.reviewedAt=localStamp();application.reviewedBy=currentAdmin.uid;}persistSimulation();showToast('Pendaftar disetujui dan masuk daftar mitra simulasi.');await refreshAdminData();await loadCatalog();return;}const partnerId=doc(collection(db,'partners')).id;const data={name:a.businessName||a.name,contactName:a.contactName||'',phone:a.phone||'',area:normalizeArea(a.area||'Semua wilayah'),capacity:a.capacity||'',specialty:a.specialty||'',notes:a.notes||'',bankName:'',bankAccountName:'',bankAccountNo:'',status:'active',createdAt:serverTimestamp(),updatedAt:serverTimestamp(),applicationId:a.id};const batch=writeBatch(db);batch.set(doc(db,'partners',partnerId),data);batch.set(doc(db,'partnerDirectory',partnerId),{name:data.name,area:data.area,specialty:data.specialty,status:'active',createdAt:serverTimestamp(),updatedAt:serverTimestamp()});batch.update(doc(db,'partnerApplications',a.id),{status:'approved',reviewedAt:serverTimestamp(),reviewedBy:currentAdmin.uid});await batch.commit();showToast('Pendaftar disetujui dan masuk daftar mitra. Lengkapi data rekening sesuai prosedur.');await refreshAdminData();}catch(error){console.error(error);showToast(error.message||'Pendaftar belum berhasil disetujui.');}finally{setBusy(false);}}
+async function approveApplication(a){if(!confirm(`Setujui ${a.businessName||a.name} sebagai mitra?`))return;setBusy(true,'Menyetujui mitra…');try{if(IS_DEMO){const sim=getSimulationState(),partnerId=simulationId('MITRA'),newPartner={id:partnerId,name:a.businessName||a.name,contactName:a.contactName||'',phone:a.phone||'',area:normalizeArea(a.area||'Semua wilayah'),capacity:a.capacity||'',specialty:a.specialty||'',notes:a.notes||'',bankName:'',bankAccountName:'',bankAccountNo:'',status:'active',createdAt:localStamp(),updatedAt:localStamp(),applicationId:a.id};sim.partners.push(newPartner);const application=sim.applications.find(x=>x.id===a.id);if(application){application.status='approved';application.reviewedAt=localStamp();application.reviewedBy=currentAdmin.uid;}persistSimulation();showToast('Pendaftar disetujui dan masuk daftar mitra simulasi.');await refreshAdminData();await loadCatalog();return;}const partnerId=doc(collection(db,'partners')).id;const data={name:a.businessName||a.name,contactName:a.contactName||'',phone:a.phone||'',area:normalizeArea(a.area||'Jakarta'),capacity:a.capacity||'',specialty:a.specialty||'',notes:a.notes||'',bankName:'',bankAccountName:'',bankAccountNo:'',status:'active',uid:a.uid||'',createdAt:serverTimestamp(),updatedAt:serverTimestamp(),applicationId:a.id};const batch=writeBatch(db);batch.set(doc(db,'partners',partnerId),data);batch.set(doc(db,'partnerDirectory',partnerId),{name:data.name,area:data.area,specialty:data.specialty,status:'active',createdAt:serverTimestamp(),updatedAt:serverTimestamp()});batch.update(doc(db,'partnerApplications',a.id),{status:'approved',reviewedAt:serverTimestamp(),reviewedBy:currentAdmin.uid,partnerId});if(a.uid){batch.update(doc(db,'users',a.uid),{role:'partner',active:true,partnerId,partnerName:data.name,updatedAt:serverTimestamp()});}await batch.commit();showToast(a.uid?'Mitra disetujui. Akun tersebut sekarang dapat membuka Dashboard Mitra.':'Mitra disetujui. Belum ada akun login yang ditautkan untuk mitra ini.');await refreshAdminData();}catch(error){console.error(error);showToast(error.message||'Pendaftar belum berhasil disetujui.');}finally{setBusy(false);}}
 async function rejectApplication(a){const note=prompt('Catatan penolakan (opsional):','');if(note===null)return;try{if(IS_DEMO){const sim=getSimulationState(),application=sim.applications.find(x=>x.id===a.id);if(application){application.status='rejected';application.reviewNote=note;application.reviewedAt=localStamp();application.reviewedBy=currentAdmin.uid;}persistSimulation();showToast('Pendaftaran ditandai ditolak di simulasi.');await refreshAdminData();return;}await updateDoc(doc(db,'partnerApplications',a.id),{status:'rejected',reviewNote:note,reviewedAt:serverTimestamp(),reviewedBy:currentAdmin.uid});showToast('Pendaftaran ditandai ditolak.');await refreshAdminData();}catch(error){showToast(error.message||'Gagal memperbarui pendaftaran.');}}
 async function startSettlement(partnerId){const eligible=orders.filter(o=>o.paymentStatus==='paid'&&o.status==='delivered'&&(o.items||[]).some(i=>(i.partnerId||o.partnerId)===partnerId&&i.settlementStatus!=='paid'));if(!eligible.length)return showToast('Tidak ada pesanan yang memenuhi syarat pembayaran.');const partner=partners.find(p=>p.id===partnerId);const ids=eligible.slice(0,100).map(o=>o.id);const expected=eligible.slice(0,100).reduce((sum,o)=>sum+(o.items||[]).filter(i=>(i.partnerId||o.partnerId)===partnerId&&i.settlementStatus!=='paid').reduce((s,i)=>s+Number(i.partnerCostTotal??Number(i.costPrice||0)*Number(i.qty||0)),0),0);const orderCodes=eligible.slice(0,100).map(o=>o.orderCode||o.id);showFormModal('Catat pembayaran mitra',`<form class="admin-form" data-admin-form><div class="inline-stat">Mitra: <b>${escapeHtml(partner?.name||'Mitra')}</b><br>Pesanan tercakup: <b>${ids.length}</b><br>${escapeHtml(orderCodes.join(', '))}</div><div class="inline-stat">Nominal yang dihitung dari snapshot pesanan: <b>${money(expected)}</b><br>Periksa kembali bukti transfer sebelum menyimpan.</div><label>Metode pembayaran<select name="method" required><option>Transfer bank</option><option>E-wallet</option><option>Tunai</option><option>Lainnya</option></select></label><label>Referensi transaksi<input name="reference" required maxlength="160" placeholder="Nomor referensi / bukti internal"></label><label>Catatan pembayaran<textarea name="notes" rows="2" maxlength="400" placeholder="Periode pembayaran, catatan tambahan…"></textarea></label><div class="admin-form-note">Mode Spark: pencatatan dibuat dalam transaksi Firestore oleh akun admin. Pesanan terpilih yang sudah dibayar tidak akan dimasukkan kembali ke pembayaran mitra.</div><div class="admin-form-actions"><button type="button" class="btn btn-ghost" data-close="formModal">Batal</button><button type="submit" class="btn btn-primary">Konfirmasi pembayaran</button></div></form>`,async form=>{const reference=getVal(form,'reference');if(!reference)throw new Error('Isi referensi pembayaran.');setBusy(true,'Memvalidasi dan mencatat pembayaran…');try{
  if(IS_DEMO){const sim=getSimulationState(),method=getVal(form,'method'),notes=getVal(form,'notes'),targetOrders=sim.orders.filter(o=>ids.includes(o.id));if(targetOrders.some(o=>o.paymentStatus!=='paid'||o.status!=='delivered'))throw new Error('Hanya pesanan terkirim dan sudah dibayar yang dapat masuk simulasi pembayaran mitra.');let amount=0;targetOrders.forEach(order=>{(order.items||[]).forEach(item=>{if((item.partnerId||order.partnerId)===partnerId&&item.settlementStatus!=='paid'){amount+=Number(item.partnerCostTotal??Number(item.costPrice||0)*Number(item.qty||0));item.settlementStatus='paid';}});order.settlementStatus=(order.items||[]).every(i=>i.settlementStatus==='paid')?'paid':'partial';order.updatedAt=localStamp();});const partner=sim.partners.find(p=>p.id===partnerId);sim.settlements.unshift({id:simulationId('BAYAR'),settlementCode:simulationId('SET'),partnerId,partnerName:partner?.name||'Mitra',amount,method:getVal(form,'method'),reference,notes,orderIds:targetOrders.map(o=>o.id),orderCodes:targetOrders.map(o=>o.orderCode||o.id),createdAt:localStamp(),simulation:true});persistSimulation();closeModal('formModal');showToast('Pembayaran mitra dicatat di simulasi.');await refreshAdminData();return;}
@@ -492,13 +660,16 @@ async function startSettlement(partnerId){const eligible=orders.filter(o=>o.paym
 // Initial customer experience and PWA cache registration.
 const deliveryDateInput=byId('checkoutForm').elements.deliveryDate; if(deliveryDateInput){const today=new Date();deliveryDateInput.min=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;}
 await loadCatalog();
+setNavigationRole(currentRole);
+// Admin login is intentionally not shown to public users. Owner opens /?portal=admin when needed.
+if(new URLSearchParams(location.search).get('portal')==='admin'||location.hash==='#pengelola')setTimeout(openAdminEntry,180);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).catch(err=>console.warn('Service worker unavailable',err)));
 })().catch(error=>{
   console.error('BoxKita gagal dijalankan:', error);
   const message = 'Aplikasi belum selesai dimuat. Coba muat ulang halaman. Jika dibuka dari file ZIP, pastikan file app.js satu folder dengan index.html. Detail: ' + (error?.message || error);
   const toast = document.getElementById('toast');
   if (toast) { toast.textContent = message; toast.classList.add('show'); }
-  ['adminOpenBtn','mobileAdminBtn','footerAdminBtn'].forEach(id=>{
+  ['accountOpenBtn','mobileAccountBtn','adminDashboardEntry'].forEach(id=>{
     const button=document.getElementById(id);
     if(button) button.addEventListener('click',()=>window.alert(message));
   });

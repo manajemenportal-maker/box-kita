@@ -1,43 +1,36 @@
-# BoxKita — pemasangan melalui GitHub Pages (gratis)
+# BoxKita V12 — GitHub Pages + Firebase Spark
 
-## Isi yang diunggah ke GitHub
-Unggah semua file di folder ini langsung ke **root** repository GitHub: `index.html`, `app.js`, `styles.css`, `manifest.json`, `sw.js`, ikon PNG, serta `firestore.rules` dan file referensi rules. Jangan mengunggah ZIP-nya sebagai satu file dan berharap website otomatis berjalan.
+## Perubahan V12
+- Navigasi publik tidak menampilkan tombol Pengelola. Login admin hanya melalui URL khusus `?portal=admin` atau `#pengelola`.
+- Tombol Dashboard Pengelola baru ditampilkan setelah Firebase mengonfirmasi profil `users/{UID}` dengan `role: "admin"` dan `active: true`.
+- Dashboard terpisah untuk pelanggan, mitra aktif, dan mitra menunggu persetujuan.
+- Pelanggan bisa daftar/login dan melihat pesanan yang dibuat saat login. Pesanan tetap bisa dibuat sebagai tamu; pesanan tamu tidak masuk dashboard akun. Harga dan rincian pesanan pelanggan dibaca dari salinan terpisah milik akun tersebut.
+- Mitra bisa daftar/login; akun berstatus menunggu hingga admin menyetujui pendaftaran. Saat disetujui, akun dikaitkan ke dokumen mitra dan mendapat akses menu/pesanan yang ditugaskan. Mitra tidak dapat membaca data biaya modal/margin pengelola atau pesanan milik mitra lain.
+- Firestore Rules membatasi profil, pesanan pelanggan, data mitra, dan pembayaran sesuai role. Dokumen `/orders` lengkap (biaya modal dan margin) hanya dapat dibaca pengelola aktif; pelanggan membaca `/customerOrderViews/{UID}/orders`, mitra membaca `/partnerOrderViews/{partnerId}/orders` yang sudah disanitasi.
+- Dashboard PWA responsif terpisah: pelanggan (riwayat pesanan/favorit/profil), mitra (pesanan yang ditugaskan/menu usaha/profil/pembayaran tercatat), serta pengelola aktif (operasional lengkap).
+- Menu Dashboard Pengelola tidak tampil untuk pelanggan/pengunjung/mitra; akses admin melalui `?portal=admin` atau `#pengelola`, dan dashboard tetap menolak role non-admin atau akun tidak aktif.
+- PWA cache naik ke V12.
 
-## A. Publikasikan website
-1. Buat repository baru di GitHub. Untuk GitHub Free, paling mudah gunakan repository **Public**. Contoh nama: `boxkita`.
-2. Pilih **Add file → Upload files**, lalu unggah isi folder ini. Klik **Commit changes**.
-3. Buka **Settings → Pages**.
-4. Pada **Build and deployment**, pilih **Deploy from a branch**.
-5. Pilih branch `main`, folder `/(root)`, lalu klik **Save**.
-6. Setelah deployment selesai, buka alamat yang ditampilkan di halaman Pages, biasanya `https://USERNAME.github.io/boxkita/`.
+## Deploy gratis
+1. Unggah semua file di folder ini langsung ke root repository GitHub Pages branch `main`.
+2. Pada GitHub: Settings → Pages → Deploy from a branch → `main` → `/(root)`.
+3. Di Firebase Console project `box-kita`, buka Build → Firestore Database → Rules. Salin isi `firestore.rules` dari repository ini lalu Publish.
+4. Aktifkan Authentication → Sign-in method → Email/Password.
+5. Authentication → Settings → Authorized domains: tambahkan `USERNAME.github.io`.
+6. Buat akun admin awal dari URL website dengan menambahkan `?portal=admin`, klik daftar akun pengelola pertama, lalu salin UID.
+7. Di Firestore → Data, buat collection `users` dan dokumen dengan ID sama persis dengan UID. Fields: `role` string `admin`; `active` boolean `true`; email opsional. **Jangan pernah mengizinkan pendaftaran publik untuk role admin.**
+8. Login kembali lewat `?portal=admin`. Hanya jika role admin dan active true, dashboard admin ditampilkan.
 
-## B. Pasang Firestore Rules (langkah terpisah dari GitHub Pages)
-1. Buka Firebase Console dan pilih project `box-kita`.
-2. Masuk ke **Build → Firestore Database → Rules**.
-3. Buka `firestore.rules` di repository ini, salin seluruh isinya ke editor Rules Firebase, lalu klik **Publish**.
-4. File rules di GitHub hanya salinan/version control. Mengunggahnya ke GitHub tidak otomatis menerapkan rules ke Firebase.
+## Akses pelanggan dan mitra
+- Klik **Akun / Login** untuk masuk atau mendaftar pelanggan/mitra.
+- Pelanggan: daftar akun → role customer dan active true dibuat oleh aplikasi → order yang dibuat saat login disimpan dengan customerUid.
+- Mitra: daftar akun mitra → dibuat role partner_pending dan pengajuan. Admin harus menyetujui pendaftaran di dashboard admin; proses persetujuan menghubungkan user profile dengan partnerId dan mengaktifkan role partner.
+- Untuk aplikasi mitra yang dibuat lewat formulir publik lama tanpa akun, akun tidak terhubung otomatis; gunakan pendaftaran mitra dari menu Akun untuk alur dashboard.
 
-## C. Daftarkan akun pengelola pertama
-1. Di Firebase Console, aktifkan **Authentication → Sign-in method → Email/Password**.
-2. Tambahkan domain GitHub Pages ke **Authentication → Settings → Authorized domains**. Untuk `https://USERNAME.github.io/boxkita/`, masukkan `USERNAME.github.io` tanpa `https://` dan tanpa path.
-3. Setelah website online, tekan **Pengelola → Daftar akun pengelola pertama**. Masukkan email yang kamu kuasai dan password minimal 8 karakter. Form ini membuat akun Firebase Authentication dan menampilkan UID.
-4. Salin UID yang ditampilkan. Pada Firebase Console → Firestore Database → Data, buat collection `users` (jika belum ada) dan dokumen dengan Document ID persis sama dengan UID tersebut.
-5. Di dokumen itu buat field `role` bertipe **string** bernilai `admin`, serta field `active` bertipe **boolean** bernilai `true`.
-6. Kembali ke website dan login dengan email/password yang baru didaftarkan. Dashboard hanya terbuka setelah dokumen role tersebut ada.
-7. Karena repository GitHub Pages adalah publik, jangan membuat aturan yang membolehkan siapa pun memberi `role: admin` ke akun sendiri.
-
-> Penting: halaman web dapat membuat akun Firebase Authentication, tetapi tidak bisa secara aman memberi role admin sendiri. Langkah dokumen `users/{UID}` harus dikerjakan pemilik project dari Firebase Console. Jangan menaruh service-account key atau password admin di GitHub.
-
-## D. Tentang paket gratis
-- GitHub Pages menyajikan file website statis. Firebase Authentication dan Firestore tetap berjalan di project Firebase terpisah.
-- Paket ini tidak memerlukan Cloud Functions atau upload Firebase Storage.
-- `storage.rules` hanya file referensi; website ini tidak mengunggah gambar ke Firebase Storage. Gunakan URL gambar HTTPS.
-- Jangan memasukkan password, private key, service-account JSON, token akses, atau data rahasia ke repository.
-- Firebase Web API key berada di kode frontend dan bukan password. Keamanan data harus ditegakkan dengan Firestore Security Rules, Firebase Authentication, dan pembatasan API key yang sesuai.
-- Checkout yang dipublikasikan akan membuat permintaan pesanan di Firebase, bukan sekadar simulasi browser. Pastikan rules dan akun admin sudah benar sebelum dipakai pelanggan nyata. Pesanan harus diperiksa sebelum dikonfirmasi; pembayaran pelanggan diverifikasi manual.
-
-## E. Pilihan area layanan
-Semua wilayah memiliki opsi masing-masing, bukan satu opsi gabungan: Jakarta dan bagian-bagiannya, Tangerang/Kota Tangerang/Kabupaten Tangerang, Tangerang Selatan, Serpong, BSD City, Ciputat, Pamulang, Pondok Aren, Depok, Bekasi/Kota Bekasi/Kabupaten Bekasi, serta Bogor/Kota Bogor/Kabupaten Bogor. Untuk satu pesanan, satu menu, atau satu mitra, pilih area utama pada dropdown.
-
-## F. Jika website masih menampilkan versi lama
-Lakukan hard refresh (`Ctrl + Shift + R`). PWA/service worker dapat menahan cache; tutup aplikasi terpasang lalu buka URL website lagi. Jika perlu, hapus data situs/service worker untuk domain GitHub Pages melalui pengaturan browser.
+## Penting
+- GitHub Pages hanya hosting statis; rules harus dipublish ke Firebase Console secara terpisah.
+- Tidak memakai Cloud Functions atau Firebase Storage. Foto menggunakan URL HTTPS.
+- Checkout tamu masih diizinkan, tetapi pelanggan harus login saat memesan agar pesanan masuk Dashboard Pelanggan.
+- Mitra hanya dapat membaca pesanan setelah pesanan dikonfirmasi admin dan `assignedPartnerIds` ditulis oleh dashboard. Mitra tidak dapat mengubah status pesanan, harga, stok, atau pembayaran lewat client.
+- Firebase web config berada di frontend; keamanan datang dari Firestore Rules. Jangan commit service-account key, private key, password admin, atau token rahasia.
+- Setelah deploy, hard refresh (`Ctrl + Shift + R`) dan tutup-buka PWA agar cache baru dimuat.

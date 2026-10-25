@@ -1,8 +1,8 @@
 {
-  "id": "./index.html",
+  "id": "./",
   "name": "BoxKita — Layanan Nasi Box",
   "short_name": "BoxKita",
-  "description": "Layanan nasi box dan aneka kue di Jakarta, Tangerang, Serpong, Depok, Bekasi, dan Bogor. Pilihan wilayah terpisah dan dashboard pengelola tersedia.",
+  "description": "Layanan nasi box dan aneka kue di Jabodetabek dengan dashboard terpisah untuk pelanggan, mitra, dan pengelola aktif.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
