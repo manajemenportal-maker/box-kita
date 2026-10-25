@@ -1,0 +1,9 @@
+BOXKITA — ATURAN FIREBASE PAKET GRATIS
+
+1) firestore.rules: aturan Firestore Spark untuk katalog, pendaftaran mitra, pesanan, admin dan pencatatan settlement.
+2) storage.rules: semua upload/akses Firebase Storage dinonaktifkan agar aplikasi memakai URL gambar HTTPS.
+3) Firebase Console > Firestore Database > Rules: salin isi firestore.rules dan klik Publish, atau deploy melalui Firebase CLI.
+4) Deploy hanya rules (dari folder project): firebase deploy --only firestore:rules
+5) Paket Spark tidak menyediakan Cloud Functions; ZIP ini menghapus dependensi functions dan menggantikan alur checkout/status/pembayaran ke transaksi Firestore langsung.
+6) Buat user admin pada Authentication, lalu buat users/{UID} di Firestore dengan role="admin" dan active=true.
+7) Jangan membuka akses dengan allow read, write: if true.

@@ -1,0 +1,10 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // BoxKita free-tier build uses public HTTPS image URLs in Firestore.
+    // All Firebase Storage access is disabled; no upload storage is required.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
