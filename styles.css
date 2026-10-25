@@ -79,3 +79,22 @@
 
 /* V7: tombol Pengelola tetap terlihat dan bisa dibuka langsung di mobile. */
 @media(max-width:760px){.nav-actions .admin-entry{display:flex!important;align-items:center;justify-content:center;padding:7px 8px;border:1px solid #f0e2d7;border-radius:10px;background:#fff7f1;min-width:35px;min-height:35px}.nav-actions .admin-entry .admin-label{display:none}.nav-actions .admin-entry>span:first-child{font-size:17px;color:var(--orange)}.nav-actions .btn-dark{padding:8px 9px}.mobile-nav .mobile-admin-entry{display:flex!important}}
+
+/* V10: individual service-area options and safe first-admin registration */
+.location-pill{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;white-space:normal}
+.location-pill-label{font-size:10px;font-weight:800;color:#907c6b;margin-right:3px}
+.area-pill{display:inline-flex;align-items:center;background:#fff3e8;color:#a64a21;border:1px solid #f3dccb;border-radius:999px;padding:5px 8px;font-size:9px;font-weight:800;white-space:nowrap}
+.admin-register-panel{display:grid;gap:13px}
+.admin-register-intro h3{font:800 19px Manrope;margin:7px 0 6px;letter-spacing:-.4px}
+.admin-register-intro p,.admin-register-result p{font-size:11px;line-height:1.7;color:#81766d;margin:6px 0 0}
+.admin-register-result{background:#f4fbf3;border:1px solid #d9ecd4;border-radius:15px;padding:14px;display:grid;gap:9px}
+.admin-register-result>b{color:#246f3e;font-size:13px}
+.admin-register-result label{font-size:10px;font-weight:800;color:#6d635a}
+.admin-uid-row{display:flex;align-items:center;gap:8px;background:white;border:1px solid #e4eadf;border-radius:10px;padding:8px;min-width:0}
+.admin-uid-row code{font-size:10px;overflow-wrap:anywhere;flex:1;color:#31362f}
+.admin-register-steps{background:#fff;border:1px solid #e4eadf;border-radius:12px;padding:12px;margin-top:5px}
+.admin-register-steps>b{font-size:11px;line-height:1.5;display:block}
+.admin-register-steps ol{font-size:10px;line-height:1.75;color:#655d55;padding-left:18px;margin:9px 0}
+.admin-register-steps p{font-size:9px;line-height:1.7;color:#827467;margin:8px 0 12px}
+.admin-register-steps code{background:#f5f1eb;border-radius:4px;padding:2px 4px;overflow-wrap:anywhere}
+@media(max-width:760px){.location-pill{justify-content:flex-start}.area-pill{font-size:8px;padding:4px 7px}.admin-register-steps{padding:10px}.admin-register-steps ol{font-size:9px}}

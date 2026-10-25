@@ -1,7 +1,7 @@
 // Bootstrap sengaja memakai JavaScript biasa + dynamic import agar mode simulasi tetap
 // berjalan tanpa mengunduh SDK Firebase. Ini juga memungkinkan index.html dibuka lokal.
 (async function boxkitaBoot(){
-let initializeApp, getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged;
+let initializeApp, getApps, deleteApp, getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, setPersistence, inMemoryPersistence, signOut, onAuthStateChanged;
 let getFirestore, collection, doc, getDoc, getDocs, query, where, addDoc, setDoc, updateDoc, writeBatch, runTransaction, serverTimestamp;
 let firebaseInitializationError = null;
 
@@ -29,8 +29,8 @@ if (!IS_DEMO) {
       import('https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js'),
       import('https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js')
     ]);
-    ({initializeApp} = appSdk);
-    ({getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged} = authSdk);
+    ({initializeApp, getApps, deleteApp} = appSdk);
+    ({getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, setPersistence, inMemoryPersistence, signOut, onAuthStateChanged} = authSdk);
     ({getFirestore, collection, doc, getDoc, getDocs, query, where, addDoc, setDoc, updateDoc, writeBatch, runTransaction, serverTimestamp} = dbSdk);
     app = initializeApp(firebaseConfig); auth = getAuth(app); db = getFirestore(app);
     // Analytics hanya dijalankan pada browser yang didukung; kegagalan Analytics tidak mematikan aplikasi.
@@ -46,25 +46,35 @@ if (!IS_DEMO) {
   }
 }
 
-const SERVICE_AREAS = ['Jakarta','Tangerang','Serpong','Depok','Bekasi','Bogor'];
-const SIM_STORAGE_KEY = 'boxkita_simulation_v9';
-const LEGACY_SIM_STORAGE_KEY = 'boxkita_simulation_v5';
-const OLDER_SIM_STORAGE_KEY = 'boxkita_simulation_v4';
-function areaSelectOptions(selected='Semua wilayah', includeAll=true){const options=includeAll?['Semua wilayah',...SERVICE_AREAS]:SERVICE_AREAS;return options.map(area=>`<option value="${escapeHtml(area)}" ${area===selected?'selected':''}>${escapeHtml(area)}</option>`).join('');}
-function normalizeArea(area){if(!area||/jabodetabek/i.test(area)||!['Semua wilayah',...SERVICE_AREAS].includes(area))return 'Semua wilayah';return area;}
+const SERVICE_AREAS = ["Jakarta","Jakarta Pusat","Jakarta Utara","Jakarta Barat","Jakarta Selatan","Jakarta Timur","Kepulauan Seribu","Tangerang","Kota Tangerang","Kabupaten Tangerang","Tangerang Selatan","Serpong","BSD City","Ciputat","Pamulang","Pondok Aren","Depok","Bekasi","Kota Bekasi","Kabupaten Bekasi","Bogor","Kota Bogor","Kabupaten Bogor"];
+const SIM_STORAGE_KEY = 'boxkita_simulation_v10';
+const LEGACY_SIM_STORAGE_KEY = 'boxkita_simulation_v9';
+const OLDER_SIM_STORAGE_KEY = 'boxkita_simulation_v5';
+function normalizeArea(area, fallback='Jakarta') {
+  const text = String(area || '').trim();
+  if (SERVICE_AREAS.includes(text)) return text;
+  const aliases = {'Semua wilayah':fallback,'Jabodetabek':fallback,'Jabodetabek semua':fallback,'Kota Tangerang Selatan':'Tangerang Selatan','Tangerang Selatan (Serpong)':'Serpong','Tangerang Kota':'Kota Tangerang','Kab. Tangerang':'Kabupaten Tangerang','Bekasi Kota':'Kota Bekasi','Kab. Bekasi':'Kabupaten Bekasi','Bogor Kota':'Kota Bogor','Kab. Bogor':'Kabupaten Bogor'};
+  const mapped=aliases[text];
+  if (mapped && SERVICE_AREAS.includes(mapped)) return mapped;
+  return SERVICE_AREAS.includes(fallback) ? fallback : 'Jakarta';
+}
+function areaSelectOptions(selected='Jakarta') {
+ const safeSelected=normalizeArea(selected);
+ return SERVICE_AREAS.map(area=>`<option value="${escapeHtml(area)}" ${area===safeSelected?'selected':''}>${escapeHtml(area)}</option>`).join('');
+}
 const seedProducts = [
-  { id:'sample-jumat-barokah', name:'Nasi Box Jumat Barokah', description:'Paket Jumat untuk berbagi: nasi putih, lauk pilihan, sayur, sambal, dan pelengkap. Komposisi dapat disesuaikan bersama pengelola.', category:'Jumat Barokah', sellerName:'Dapur Barokah', partnerId:'sample-barokah', area:'Semua wilayah', salePrice:15000, imageUrl:'', emoji:'🤲', status:'active', stock:100, sort:0 },
-  { id:'sample-boxkita-3kue', name:'BoxKita Snack Box 3 Kue', description:'Isi contoh: lemper, pastel, dan kue lapis. Susunan kue dapat dikonfirmasi sesuai ketersediaan mitra.', category:'Box Kita', sellerName:'Dapur Kue BoxKita', partnerId:'sample-kue', area:'Semua wilayah', salePrice:12000, imageUrl:'', emoji:'🍰', status:'active', stock:100, sort:1 },
-  { id:'sample-boxkita-4kue', name:'BoxKita Snack Box 4 Kue', description:'Isi contoh: lemper, pastel, risoles, dan bolu kukus. Cocok untuk rapat, arisan, dan acara keluarga.', category:'Box Kita', sellerName:'Dapur Kue BoxKita', partnerId:'sample-kue', area:'Semua wilayah', salePrice:18000, imageUrl:'', emoji:'🧁', status:'active', stock:100, sort:2 },
-  { id:'sample-boxkita-premium', name:'BoxKita Snack Box Premium', description:'Paket contoh aneka kudapan: lemper, risoles, pastel, kue sus, dan brownies. Isi akhir disepakati berdasarkan pesanan.', category:'Box Kita', sellerName:'Dapur Kue BoxKita', partnerId:'sample-kue', area:'Semua wilayah', salePrice:25000, imageUrl:'', emoji:'🍱', status:'active', stock:80, sort:3 },
-  { id:'sample-ayam-bakar', name:'Nasi Box Ayam Bakar', description:'Ayam bakar, nasi putih, lalapan, sambal, dan kerupuk.', category:'Ayam', sellerName:'Dapur Bu Rina', partnerId:'sample-rina', area:'Semua wilayah', salePrice:25000, imageUrl:'', emoji:'🍗', status:'active', stock:100, sort:1 },
-  { id:'sample-geprek', name:'Nasi Box Ayam Geprek', description:'Ayam geprek, nasi hangat, tumis sayur, dan sambal.', category:'Ayam', sellerName:'Dapur Nusantara', partnerId:'sample-nusantara', area:'Semua wilayah', salePrice:22000, imageUrl:'', emoji:'🍱', status:'active', stock:120, sort:2 },
-  { id:'sample-ikan-kuning', name:'Nasi Box Ikan Bumbu Kuning', description:'Ikan berbumbu, nasi, urap sayur, dan pelengkap.', category:'Ikan', sellerName:'Dapur Nusantara', partnerId:'sample-nusantara', area:'Semua wilayah', salePrice:27000, imageUrl:'', emoji:'🐟', status:'active', stock:60, sort:3 },
-  { id:'sample-rendang', name:'Nasi Box Rendang', description:'Rendang sapi, nasi, sayur, sambal, dan kerupuk.', category:'Sapi', sellerName:'Dapur Bu Rina', partnerId:'sample-rina', area:'Semua wilayah', salePrice:32000, imageUrl:'', emoji:'🥘', status:'active', stock:70, sort:4 },
-  { id:'sample-hemat', name:'Paket Hemat Ayam Suwir', description:'Ayam suwir, nasi, oseng sayur, dan sambal.', category:'Paket Hemat', sellerName:'Dapur Bu Rina', partnerId:'sample-rina', area:'Semua wilayah', salePrice:18000, imageUrl:'', emoji:'🍛', status:'active', stock:150, sort:5 },
-  { id:'sample-sehat', name:'Nasi Box Sehat Sayur', description:'Nasi, tempe, tahu, sayuran segar, dan sambal.', category:'Vegetarian', sellerName:'Sehat Bersama', partnerId:'sample-sehat', area:'Semua wilayah', salePrice:23000, imageUrl:'', emoji:'🥗', status:'active', stock:45, sort:6 },
-  { id:'sample-kecap', name:'Nasi Box Ayam Kecap', description:'Ayam kecap, nasi, capcay, dan pelengkap.', category:'Ayam', sellerName:'Dapur Nusantara', partnerId:'sample-nusantara', area:'Semua wilayah', salePrice:24000, imageUrl:'', emoji:'🍗', status:'active', stock:90, sort:7 },
-  { id:'sample-ikan-goreng', name:'Nasi Box Ikan Goreng', description:'Ikan goreng, nasi, tumis buncis, sambal, dan lalapan.', category:'Ikan', sellerName:'Sehat Bersama', partnerId:'sample-sehat', area:'Semua wilayah', salePrice:26000, imageUrl:'', emoji:'🐠', status:'active', stock:50, sort:8 }
+  { id:'sample-jumat-barokah', name:'Nasi Box Jumat Barokah', description:'Paket Jumat untuk berbagi: nasi putih, lauk pilihan, sayur, sambal, dan pelengkap. Komposisi dapat disesuaikan bersama pengelola.', category:'Jumat Barokah', sellerName:'Dapur Barokah', partnerId:'sample-barokah', area:'Jakarta Pusat', salePrice:15000, imageUrl:'', emoji:'🤲', status:'active', stock:100, sort:0 },
+  { id:'sample-boxkita-3kue', name:'BoxKita Snack Box 3 Kue', description:'Isi contoh: lemper, pastel, dan kue lapis. Susunan kue dapat dikonfirmasi sesuai ketersediaan mitra.', category:'Box Kita', sellerName:'Dapur Kue BoxKita', partnerId:'sample-kue', area:'Kota Tangerang', salePrice:12000, imageUrl:'', emoji:'🍰', status:'active', stock:100, sort:1 },
+  { id:'sample-boxkita-4kue', name:'BoxKita Snack Box 4 Kue', description:'Isi contoh: lemper, pastel, risoles, dan bolu kukus. Cocok untuk rapat, arisan, dan acara keluarga.', category:'Box Kita', sellerName:'Dapur Kue BoxKita', partnerId:'sample-kue', area:'Serpong', salePrice:18000, imageUrl:'', emoji:'🧁', status:'active', stock:100, sort:2 },
+  { id:'sample-boxkita-premium', name:'BoxKita Snack Box Premium', description:'Paket contoh aneka kudapan: lemper, risoles, pastel, kue sus, dan brownies. Isi akhir disepakati berdasarkan pesanan.', category:'Box Kita', sellerName:'Dapur Kue BoxKita', partnerId:'sample-kue', area:'Depok', salePrice:25000, imageUrl:'', emoji:'🍱', status:'active', stock:80, sort:3 },
+  { id:'sample-ayam-bakar', name:'Nasi Box Ayam Bakar', description:'Ayam bakar, nasi putih, lalapan, sambal, dan kerupuk.', category:'Ayam', sellerName:'Dapur Bu Rina', partnerId:'sample-rina', area:'Jakarta Selatan', salePrice:25000, imageUrl:'', emoji:'🍗', status:'active', stock:100, sort:1 },
+  { id:'sample-geprek', name:'Nasi Box Ayam Geprek', description:'Ayam geprek, nasi hangat, tumis sayur, dan sambal.', category:'Ayam', sellerName:'Dapur Nusantara', partnerId:'sample-nusantara', area:'Kota Bekasi', salePrice:22000, imageUrl:'', emoji:'🍱', status:'active', stock:120, sort:2 },
+  { id:'sample-ikan-kuning', name:'Nasi Box Ikan Bumbu Kuning', description:'Ikan berbumbu, nasi, urap sayur, dan pelengkap.', category:'Ikan', sellerName:'Dapur Nusantara', partnerId:'sample-nusantara', area:'Kota Bogor', salePrice:27000, imageUrl:'', emoji:'🐟', status:'active', stock:60, sort:3 },
+  { id:'sample-rendang', name:'Nasi Box Rendang', description:'Rendang sapi, nasi, sayur, sambal, dan kerupuk.', category:'Sapi', sellerName:'Dapur Bu Rina', partnerId:'sample-rina', area:'Tangerang Selatan', salePrice:32000, imageUrl:'', emoji:'🥘', status:'active', stock:70, sort:4 },
+  { id:'sample-hemat', name:'Paket Hemat Ayam Suwir', description:'Ayam suwir, nasi, oseng sayur, dan sambal.', category:'Paket Hemat', sellerName:'Dapur Bu Rina', partnerId:'sample-rina', area:'Kabupaten Tangerang', salePrice:18000, imageUrl:'', emoji:'🍛', status:'active', stock:150, sort:5 },
+  { id:'sample-sehat', name:'Nasi Box Sehat Sayur', description:'Nasi, tempe, tahu, sayuran segar, dan sambal.', category:'Vegetarian', sellerName:'Sehat Bersama', partnerId:'sample-sehat', area:'Bogor', salePrice:23000, imageUrl:'', emoji:'🥗', status:'active', stock:45, sort:6 },
+  { id:'sample-kecap', name:'Nasi Box Ayam Kecap', description:'Ayam kecap, nasi, capcay, dan pelengkap.', category:'Ayam', sellerName:'Dapur Nusantara', partnerId:'sample-nusantara', area:'Jakarta Barat', salePrice:24000, imageUrl:'', emoji:'🍗', status:'active', stock:90, sort:7 },
+  { id:'sample-ikan-goreng', name:'Nasi Box Ikan Goreng', description:'Ikan goreng, nasi, tumis buncis, sambal, dan lalapan.', category:'Ikan', sellerName:'Sehat Bersama', partnerId:'sample-sehat', area:'Kabupaten Bekasi', salePrice:26000, imageUrl:'', emoji:'🐠', status:'active', stock:50, sort:8 }
 ];
 const seedPartners = [
   {id:'sample-barokah',name:'Dapur Barokah',contactName:'Pengelola Dapur Barokah',phone:'',area:'Jakarta',capacity:'101–300 box/hari',specialty:'Paket Jumat Barokah',status:'active'},
@@ -186,7 +196,7 @@ byId('boxKitaBtn')?.addEventListener('click',()=>{selectedCategory='Box Kita';by
 byId('categoryChips').addEventListener('click',e=>{const chip=e.target.closest('[data-category]');if(!chip)return;selectedCategory=chip.dataset.category;byId('categoryFilter').value=selectedCategory;document.querySelectorAll('.category-chip').forEach(b=>b.classList.toggle('active',b===chip));renderProducts();});
 byId('cartOpenBtn').addEventListener('click',()=>{renderCart();openModal('cartModal');});
 byId('adminOpenBtn').addEventListener('click',openAdminEntry); byId('footerAdminBtn').addEventListener('click',openAdminEntry);
-function openAdminEntry(){ if(IS_DEMO){currentAdmin={uid:'boxkita-demo-admin',email:'simulasi@boxkita.local',simulation:true};showAdmin();showToast('Dashboard simulasi aktif. Data tersimpan di browser ini.');return;} if(firebaseInitializationError||!auth){showToast('Firebase belum berhasil dimuat. Periksa koneksi internet dan konfigurasi Firebase, lalu muat ulang halaman.');return;} if(currentAdmin){showAdmin();return;}openModal('loginModal'); }
+function openAdminEntry(){ if(IS_DEMO){currentAdmin={uid:'boxkita-demo-admin',email:'simulasi@boxkita.local',simulation:true};showAdmin();showToast('Dashboard simulasi aktif. Data tersimpan di browser ini.');return;} if(firebaseInitializationError||!auth){showToast('Firebase belum berhasil dimuat. Periksa koneksi internet dan konfigurasi Firebase, lalu muat ulang halaman.');return;} if(currentAdmin){showAdmin();return;}showAdminLoginPanel();openModal('loginModal'); }
 window.boxKitaAdminOpen = openAdminEntry;
 document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>closeModal(btn.dataset.close)));
 document.addEventListener('click',e=>{const close=e.target.closest('[data-close]');if(close)closeModal(close.dataset.close);});
@@ -203,7 +213,7 @@ async function installPWA(){ if(deferredInstall){deferredInstall.prompt();await 
 byId('partnerApplicationForm').addEventListener('submit', async event=>{
  event.preventDefault(); const form=event.currentTarget, data={businessName:getVal(form,'businessName'),contactName:getVal(form,'contactName'),phone:getVal(form,'phone'),area:getVal(form,'area'),capacity:getVal(form,'capacity'),specialty:getVal(form,'specialty'),notes:getVal(form,'notes')};
  try { setBusy(true,'Mengirim pendaftaran mitra…'); if(!IS_DEMO){await addDoc(collection(db,'partnerApplications'),{...data,status:'pending',createdAt:serverTimestamp(),source:'website'});} else {const sim=getSimulationState();sim.applications.unshift({...data,id:simulationId('APP'),status:'pending',createdAt:localStamp()});persistSimulation();}
- form.reset(); form.elements.area.value='Semua wilayah'; showToast(IS_DEMO?'Simulasi: pendaftaran tersimpan. Buka Pengelola → Mitra & Pendaftar untuk meninjaunya.':'Pendaftaran terkirim. Tim BoxKita akan meninjaunya.');
+ form.reset(); form.elements.area.value=''; showToast(IS_DEMO?'Simulasi: pendaftaran tersimpan. Buka Pengelola → Mitra & Pendaftar untuk meninjaunya.':'Pendaftaran terkirim. Tim BoxKita akan meninjaunya.');
  } catch(error){console.error(error);showToast(error.message||'Pendaftaran belum berhasil dikirim.');} finally{setBusy(false);}
 });
 
@@ -254,6 +264,65 @@ if(!IS_DEMO && auth && onAuthStateChanged){
  });
 }
 byId('loginForm').addEventListener('submit',async e=>{e.preventDefault();if(IS_DEMO){currentAdmin={uid:'boxkita-demo-admin',email:'simulasi@boxkita.local',simulation:true};closeModal('loginModal');showAdmin();return showToast('Dashboard simulasi dibuka.');}if(firebaseInitializationError||!auth){showToast('Firebase SDK gagal dimuat. Periksa koneksi dan muat ulang halaman.');return;}const form=e.currentTarget;try{setBusy(true,'Memverifikasi akun…');await signInWithEmailAndPassword(auth,getVal(form,'email'),getVal(form,'password'));form.reset();}catch(error){console.error(error);showToast('Login gagal. Periksa email, password, dan pengaturan Firebase Authentication.');}finally{setBusy(false);}});
+function showAdminLoginPanel(){
+  byId('loginForm').classList.remove('hidden');
+  byId('toggleAdminRegister').classList.remove('hidden');
+  byId('adminRegisterPanel').classList.add('hidden');
+  byId('adminRegisterForm').classList.remove('hidden');
+  byId('adminRegisterResult').classList.add('hidden');
+}
+byId('toggleAdminRegister').addEventListener('click',()=>{
+  byId('loginForm').classList.add('hidden');
+  byId('toggleAdminRegister').classList.add('hidden');
+  byId('adminRegisterPanel').classList.remove('hidden');
+});
+byId('backToAdminLogin').addEventListener('click',showAdminLoginPanel);
+async function createAdminAuthAccount(email,password){
+  if(!getApps||!deleteApp||!createUserWithEmailAndPassword||!setPersistence||!inMemoryPersistence)throw new Error('Fungsi registrasi Firebase belum tersedia. Perbarui halaman dan periksa koneksi.');
+  let registrationApp=null;
+  try{
+    registrationApp=getApps().find(existing=>existing.name==='boxkita-admin-registration')||initializeApp(firebaseConfig,'boxkita-admin-registration');
+    const temporaryAuth=getAuth(registrationApp);
+    await setPersistence(temporaryAuth,inMemoryPersistence);
+    const credential=await createUserWithEmailAndPassword(temporaryAuth,email,password);
+    const uid=credential.user.uid;
+    await signOut(temporaryAuth);
+    return uid;
+  }finally{
+    if(registrationApp){try{await deleteApp(registrationApp);}catch(cleanupError){console.warn('Temporary registration app cleanup:',cleanupError);}}
+  }
+}
+byId('adminRegisterForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  if(IS_DEMO)return showToast('Firebase belum dikonfigurasi aktif. Pada mode simulasi, klik Pengelola untuk masuk tanpa akun.');
+  if(firebaseInitializationError||!auth)return showToast('Firebase belum berhasil dimuat. Periksa koneksi, lalu muat ulang.');
+  const form=event.currentTarget,email=getVal(form,'email').trim(),password=getVal(form,'password'),confirmation=getVal(form,'confirmPassword');
+  if(password.length<8)return showToast('Gunakan password minimal 8 karakter.');
+  if(password!==confirmation)return showToast('Konfirmasi password belum sama.');
+  try{
+    setBusy(true,'Mendaftarkan akun Firebase…');
+    const uid=await createAdminAuthAccount(email,password);
+    byId('adminRegisterForm').classList.add('hidden');
+    byId('adminRegisterResult').classList.remove('hidden');
+    byId('adminRegisterResultMessage').textContent=`Akun login berhasil dibuat untuk ${email}. Satu langkah keamanan lagi diperlukan sebelum akun ini bisa menjadi pengelola.`;
+    byId('adminRegisterUid').textContent=uid;
+    byId('adminRegisterNextSteps').classList.remove('hidden');
+    byId('toggleAdminRegister').classList.add('hidden');
+    showToast('Akun login terdaftar. Selesaikan aktivasi role admin di Firestore.');
+    form.reset();
+  }catch(error){
+    console.error('Admin account registration failed:',error);
+    const message=error?.code==='auth/email-already-in-use'?'Email tersebut sudah terdaftar. Gunakan login atau email lain.':error?.code==='auth/weak-password'?'Password terlalu lemah. Gunakan minimal 8 karakter.':error?.code==='auth/operation-not-allowed'?'Aktifkan Email/Password di Firebase Authentication → Sign-in method.':error?.code==='auth/invalid-email'?'Format email tidak valid.':(error?.message||'Akun belum berhasil dibuat. Periksa Firebase Authentication.');
+    showToast(message);
+  }finally{setBusy(false);}
+});
+byId('copyAdminUidBtn').addEventListener('click',async()=>{
+  const uid=byId('adminRegisterUid').textContent.trim();
+  try{await navigator.clipboard.writeText(uid);showToast('UID admin berhasil disalin.');}
+  catch(error){showToast('Salin UID secara manual dari kotak di atas.');}
+});
+byId('returnAdminLoginAfterRegister').addEventListener('click',showAdminLoginPanel);
+
 byId('logoutBtn').addEventListener('click',async()=>{if(auth)await signOut(auth);currentAdmin=null;hideAdmin();showToast('Kamu sudah keluar dari dashboard.');});
 byId('backToStore').addEventListener('click',hideAdmin);
 byId('adminMobileMenuBtn').addEventListener('click',()=>document.querySelector('.admin-sidebar').classList.toggle('open'));
@@ -346,7 +415,7 @@ function openProductForm(id=null){const p=(window.adminProducts||[]).find(x=>x.i
  },'KATALOG & HARGA');
  const costInput=byId('formModalBody').querySelector('[name="costPrice"]'),saleInput=byId('formModalBody').querySelector('[name="salePrice"]');const updateMargin=()=>{const val=Number(saleInput.value||0)-Number(costInput.value||0);byId('marginPreview').innerHTML=`Margin kotor per box: <b class="${val>=0?'margin-positive':''}">${money(val)}</b>`};costInput.addEventListener('input',updateMargin);saleInput.addEventListener('input',updateMargin);openModal('formModal');
 }
-function openPartnerForm(id=null,initial={}){const p=(partners.find(x=>x.id===id)||initial);showFormModal(id?'Edit data mitra':'Tambah mitra',`<form class="admin-form" data-admin-form><div class="admin-form-grid"><label class="full">Nama usaha / dapur<input name="name" required maxlength="120" value="${escapeHtml(p.name||p.businessName||'')}" placeholder="Dapur Bu Rina"></label><label>Nama penanggung jawab<input name="contactName" required maxlength="120" value="${escapeHtml(p.contactName||'')}"></label><label>Nomor WhatsApp<input name="phone" required maxlength="30" value="${escapeHtml(p.phone||'')}"></label><label>Area layanan<select name="area" required>${areaSelectOptions(normalizeArea(p.area||'Semua wilayah'))}</select></label><label>Kapasitas produksi<select name="capacity"><option ${p.capacity==='1–30 box/hari'?'selected':''}>1–30 box/hari</option><option ${p.capacity==='31–100 box/hari'?'selected':''}>31–100 box/hari</option><option ${p.capacity==='101–300 box/hari'?'selected':''}>101–300 box/hari</option><option ${p.capacity==='Lebih dari 300 box/hari'?'selected':''}>Lebih dari 300 box/hari</option></select></label><label class="full">Spesialisasi / menu unggulan<input name="specialty" maxlength="200" value="${escapeHtml(p.specialty||'')}" placeholder="Menu ayam, ikan, vegetarian…"></label><label>Nama bank<input name="bankName" maxlength="80" value="${escapeHtml(p.bankName||'')}" placeholder="Nama bank/e-wallet"></label><label>Nama pemilik rekening<input name="bankAccountName" maxlength="120" value="${escapeHtml(p.bankAccountName||'')}"></label><label class="full">Nomor rekening / tujuan pembayaran<input name="bankAccountNo" maxlength="80" value="${escapeHtml(p.bankAccountNo||'')}"></label><label>Status<select name="status"><option value="active" ${p.status!=='paused'?'selected':''}>Aktif</option><option value="paused" ${p.status==='paused'?'selected':''}>Nonaktif</option></select></label><label class="full">Catatan internal<textarea name="notes" rows="3" maxlength="600">${escapeHtml(p.notes||'')}</textarea></label><div class="admin-form-note full">Detail rekening mitra adalah data sensitif operasional. Batasi aksesnya pada pengelola dan gunakan hanya untuk pembayaran sesuai perjanjian kemitraan.</div></div><div class="admin-form-actions"><button type="button" class="btn btn-ghost" data-close="formModal">Batal</button><button type="submit" class="btn btn-primary">Simpan mitra</button></div></form>`,async form=>{const data={name:getVal(form,'name'),contactName:getVal(form,'contactName'),phone:getVal(form,'phone'),area:getVal(form,'area'),capacity:getVal(form,'capacity'),specialty:getVal(form,'specialty'),bankName:getVal(form,'bankName'),bankAccountName:getVal(form,'bankAccountName'),bankAccountNo:getVal(form,'bankAccountNo'),status:getVal(form,'status'),notes:getVal(form,'notes'),updatedAt:IS_DEMO?localStamp():serverTimestamp()};if(!data.name||!data.contactName||!data.phone||!data.area)throw new Error('Nama usaha, penanggung jawab, WhatsApp, dan area layanan wajib diisi.');if(!id)data.createdAt=IS_DEMO?localStamp():serverTimestamp();setBusy(true,'Menyimpan mitra…');try{if(IS_DEMO){const sim=getSimulationState(),partnerId=id||simulationId('MITRA'),oldPartner=sim.partners.find(x=>x.id===partnerId),saveData={...data,id:partnerId,createdAt:id?(oldPartner?.createdAt||localStamp()):localStamp(),updatedAt:localStamp()};const ix=sim.partners.findIndex(x=>x.id===partnerId);if(ix>=0)sim.partners[ix]={...sim.partners[ix],...saveData};else sim.partners.push(saveData);const partnerWasPaused=oldPartner?.status==='paused';sim.products.forEach(product=>{if(product.partnerId===partnerId){product.partnerName=saveData.name;if(saveData.status==='paused')product.status='paused';else if(partnerWasPaused)product.status='active';product.updatedAt=localStamp();}});persistSimulation();closeModal('formModal');showToast('Data mitra tersimpan di simulasi.');await refreshAdminData();await loadCatalog();return;}const partnerId=id||doc(collection(db,'partners')).id;const oldPartner=partners.find(x=>x.id===partnerId);const batch=writeBatch(db);if(id)batch.set(doc(db,'partners',partnerId),data,{merge:true});else batch.set(doc(db,'partners',partnerId),data);const directory={name:data.name,area:data.area,specialty:data.specialty,status:data.status,updatedAt:serverTimestamp()};if(!id)directory.createdAt=serverTimestamp();batch.set(doc(db,'partnerDirectory',partnerId),directory,{merge:true});if(id){const linkedProducts=(window.adminProducts||[]).filter(x=>x.partnerId===partnerId);const linkedCatalog=(window.adminCatalogCache||[]).filter(x=>x.partnerId===partnerId);const partnerWasPaused=oldPartner?.status==='paused';linkedProducts.forEach(x=>{const update={partnerName:data.name,updatedAt:serverTimestamp()};if(data.status==='paused')update.status='paused';else if(partnerWasPaused)update.status='active';batch.update(doc(db,'products',x.id),update);});linkedCatalog.forEach(c=>{const update={sellerName:data.name,updatedAt:serverTimestamp()};if(data.status==='paused')update.status='paused';else if(partnerWasPaused)update.status='active';batch.update(doc(db,'catalog',c.id),update);});}await batch.commit();closeModal('formModal');showToast('Data mitra berhasil disimpan.');await refreshAdminData();await loadCatalog();}finally{setBusy(false);}},'DATA MITRA');openModal('formModal');}
+function openPartnerForm(id=null,initial={}){const p=(partners.find(x=>x.id===id)||initial);showFormModal(id?'Edit data mitra':'Tambah mitra',`<form class="admin-form" data-admin-form><div class="admin-form-grid"><label class="full">Nama usaha / dapur<input name="name" required maxlength="120" value="${escapeHtml(p.name||p.businessName||'')}" placeholder="Dapur Bu Rina"></label><label>Nama penanggung jawab<input name="contactName" required maxlength="120" value="${escapeHtml(p.contactName||'')}"></label><label>Nomor WhatsApp<input name="phone" required maxlength="30" value="${escapeHtml(p.phone||'')}"></label><label>Area layanan<select name="area" required>${areaSelectOptions(normalizeArea(p.area||'Semua wilayah'))}</select></label><label>Kapasitas produksi<select name="capacity"><option ${p.capacity==='1–30 box/hari'?'selected':''}>1–30 box/hari</option><option ${p.capacity==='31–100 box/hari'?'selected':''}>31–100 box/hari</option><option ${p.capacity==='101–300 box/hari'?'selected':''}>101–300 box/hari</option><option ${p.capacity==='Lebih dari 300 box/hari'?'selected':''}>Lebih dari 300 box/hari</option></select></label><label class="full">Spesialisasi / menu unggulan<input name="specialty" maxlength="200" value="${escapeHtml(p.specialty||'')}" placeholder="Menu ayam, ikan, vegetarian…"></label><label>Nama bank<input name="bankName" maxlength="80" value="${escapeHtml(p.bankName||'')}" placeholder="Nama bank/e-wallet"></label><label>Nama pemilik rekening<input name="bankAccountName" maxlength="120" value="${escapeHtml(p.bankAccountName||'')}"></label><label class="full">Nomor rekening / tujuan pembayaran<input name="bankAccountNo" maxlength="80" value="${escapeHtml(p.bankAccountNo||'')}"></label><label>Status<select name="status"><option value="active" ${p.status!=='paused'?'selected':''}>Aktif</option><option value="paused" ${p.status==='paused'?'selected':''}>Nonaktif</option></select></label><label class="full">Catatan internal<textarea name="notes" rows="3" maxlength="600">${escapeHtml(p.notes||'')}</textarea></label><div class="admin-form-note full">Detail rekening mitra adalah data sensitif operasional. Batasi aksesnya pada pengelola dan gunakan hanya untuk pembayaran sesuai perjanjian kemitraan.</div></div><div class="admin-form-actions"><button type="button" class="btn btn-ghost" data-close="formModal">Batal</button><button type="submit" class="btn btn-primary">Simpan mitra</button></div></form>`,async form=>{const data={name:getVal(form,'name'),contactName:getVal(form,'contactName'),phone:getVal(form,'phone'),area:getVal(form,'area'),capacity:getVal(form,'capacity'),specialty:getVal(form,'specialty'),bankName:getVal(form,'bankName'),bankAccountName:getVal(form,'bankAccountName'),bankAccountNo:getVal(form,'bankAccountNo'),status:getVal(form,'status'),notes:getVal(form,'notes'),updatedAt:IS_DEMO?localStamp():serverTimestamp()};if(!data.name||!data.contactName||!data.phone||!data.area||!SERVICE_AREAS.includes(data.area))throw new Error('Nama usaha, penanggung jawab, WhatsApp, dan pilih satu area layanan harus diisi.');if(!id)data.createdAt=IS_DEMO?localStamp():serverTimestamp();setBusy(true,'Menyimpan mitra…');try{if(IS_DEMO){const sim=getSimulationState(),partnerId=id||simulationId('MITRA'),oldPartner=sim.partners.find(x=>x.id===partnerId),saveData={...data,id:partnerId,createdAt:id?(oldPartner?.createdAt||localStamp()):localStamp(),updatedAt:localStamp()};const ix=sim.partners.findIndex(x=>x.id===partnerId);if(ix>=0)sim.partners[ix]={...sim.partners[ix],...saveData};else sim.partners.push(saveData);const partnerWasPaused=oldPartner?.status==='paused';sim.products.forEach(product=>{if(product.partnerId===partnerId){product.partnerName=saveData.name;if(saveData.status==='paused')product.status='paused';else if(partnerWasPaused)product.status='active';product.updatedAt=localStamp();}});persistSimulation();closeModal('formModal');showToast('Data mitra tersimpan di simulasi.');await refreshAdminData();await loadCatalog();return;}const partnerId=id||doc(collection(db,'partners')).id;const oldPartner=partners.find(x=>x.id===partnerId);const batch=writeBatch(db);if(id)batch.set(doc(db,'partners',partnerId),data,{merge:true});else batch.set(doc(db,'partners',partnerId),data);const directory={name:data.name,area:data.area,specialty:data.specialty,status:data.status,updatedAt:serverTimestamp()};if(!id)directory.createdAt=serverTimestamp();batch.set(doc(db,'partnerDirectory',partnerId),directory,{merge:true});if(id){const linkedProducts=(window.adminProducts||[]).filter(x=>x.partnerId===partnerId);const linkedCatalog=(window.adminCatalogCache||[]).filter(x=>x.partnerId===partnerId);const partnerWasPaused=oldPartner?.status==='paused';linkedProducts.forEach(x=>{const update={partnerName:data.name,updatedAt:serverTimestamp()};if(data.status==='paused')update.status='paused';else if(partnerWasPaused)update.status='active';batch.update(doc(db,'products',x.id),update);});linkedCatalog.forEach(c=>{const update={sellerName:data.name,updatedAt:serverTimestamp()};if(data.status==='paused')update.status='paused';else if(partnerWasPaused)update.status='active';batch.update(doc(db,'catalog',c.id),update);});}await batch.commit();closeModal('formModal');showToast('Data mitra berhasil disimpan.');await refreshAdminData();await loadCatalog();}finally{setBusy(false);}},'DATA MITRA');openModal('formModal');}
 
 // Generic admin table actions, attached once to the view container.
 byId('adminView').addEventListener('click',async e=>{

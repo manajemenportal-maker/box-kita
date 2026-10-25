@@ -16,8 +16,13 @@ service cloud.firestore {
         && get(userDocPath(request.auth.uid)).data.active != false;
     }
 
+    // Each value is a separate selection in checkout, partner registration, and admin forms.
     function validServiceArea(area) {
-      return area in ['Jakarta', 'Tangerang', 'Serpong', 'Depok', 'Bekasi', 'Bogor'];
+      return area in [
+        'Jakarta', 'Jakarta Pusat', 'Jakarta Utara', 'Jakarta Barat', 'Jakarta Selatan', 'Jakarta Timur', 'Kepulauan Seribu',
+        'Tangerang', 'Kota Tangerang', 'Kabupaten Tangerang', 'Tangerang Selatan', 'Serpong', 'BSD City', 'Ciputat', 'Pamulang', 'Pondok Aren',
+        'Depok', 'Bekasi', 'Kota Bekasi', 'Kabupaten Bekasi', 'Bogor', 'Kota Bogor', 'Kabupaten Bogor'
+      ];
     }
 
     function validOrderItem(item) {
@@ -147,7 +152,7 @@ service cloud.firestore {
         && request.resource.data.phone.size() >= 7
         && request.resource.data.phone.size() <= 30
         && request.resource.data.area is string
-        && request.resource.data.area in ['Semua wilayah', 'Jakarta', 'Tangerang', 'Serpong', 'Depok', 'Bekasi', 'Bogor']
+        && validServiceArea(request.resource.data.area)
         && request.resource.data.capacity is string
         && request.resource.data.capacity.size() <= 80
         && request.resource.data.specialty is string
