@@ -1,47 +1,33 @@
-# BoxKita V13 — GitHub Pages + Firebase Spark
+# BoxKita — Layanan Nasi Box
 
-## Perubahan V12
-- Navigasi publik tidak menampilkan tombol Pengelola. Login admin hanya melalui URL khusus `?portal=admin` atau `#pengelola`.
-- Tombol Dashboard Pengelola baru ditampilkan setelah Firebase mengonfirmasi profil `users/{UID}` dengan `role: "admin"` dan `active: true`.
-- Dashboard terpisah untuk pelanggan, mitra aktif, dan mitra menunggu persetujuan.
-- Pelanggan bisa daftar/login dan melihat pesanan yang dibuat saat login. Pesanan tetap bisa dibuat sebagai tamu; pesanan tamu tidak masuk dashboard akun. Harga dan rincian pesanan pelanggan dibaca dari salinan terpisah milik akun tersebut.
-- Mitra bisa daftar/login; akun berstatus menunggu hingga admin menyetujui pendaftaran. Saat disetujui, akun dikaitkan ke dokumen mitra dan mendapat akses menu/pesanan yang ditugaskan. Mitra tidak dapat membaca data biaya modal/margin pengelola atau pesanan milik mitra lain.
-- Firestore Rules membatasi profil, pesanan pelanggan, data mitra, dan pembayaran sesuai role. Dokumen `/orders` lengkap (biaya modal dan margin) hanya dapat dibaca pengelola aktif; pelanggan membaca `/customerOrderViews/{UID}/orders`, mitra membaca `/partnerOrderViews/{partnerId}/orders` yang sudah disanitasi.
-- Dashboard PWA responsif terpisah: pelanggan (riwayat pesanan/favorit/profil), mitra (pesanan yang ditugaskan/menu usaha/profil/pembayaran tercatat), serta pengelola aktif (operasional lengkap).
-- Menu Dashboard Pengelola tidak tampil untuk pelanggan/pengunjung/mitra; akses admin melalui `?portal=admin` atau `#pengelola`, dan dashboard tetap menolak role non-admin atau akun tidak aktif.
-- PWA cache naik ke V12.
+Website PWA BoxKita untuk layanan nasi box dan aneka kue di Jabodetabek. Website publik, dashboard pelanggan, dashboard mitra, dan dashboard pengelola menggunakan Firebase Authentication dan Cloud Firestore.
 
-## Deploy gratis
-1. Unggah semua file di folder ini langsung ke root repository GitHub Pages branch `main`.
-2. Pada GitHub: Settings → Pages → Deploy from a branch → `main` → `/(root)`.
-3. Di Firebase Console project `box-kita`, buka Build → Firestore Database → Rules. Salin isi `firestore.rules` dari repository ini lalu Publish.
-4. Aktifkan Authentication → Sign-in method → Email/Password.
-5. Authentication → Settings → Authorized domains: tambahkan `USERNAME.github.io`.
-6. Buat akun admin awal dari URL website dengan menambahkan `?portal=admin`, klik daftar akun pengelola pertama, lalu salin UID.
-7. Di Firestore → Data, buat collection `users` dan dokumen dengan ID sama persis dengan UID. Fields: `role` string `admin`; `active` boolean `true`; email opsional. **Jangan pernah mengizinkan pendaftaran publik untuk role admin.**
-8. Login kembali lewat `?portal=admin`. Hanya jika role admin dan active true, dashboard admin ditampilkan.
+## Isi paket
+- `index.html`, `styles.css`, `app.js`: website dan dashboard responsif.
+- `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png`: instalasi PWA dan cache aset.
+- `firestore.rules`: aturan akses database.
+- `firestore.indexes.json`: indeks Firestore.
 
-## Akses pelanggan dan mitra
-- Klik **Akun / Login** untuk masuk atau mendaftar pelanggan/mitra.
-- Pelanggan: daftar akun → role customer dan active true dibuat oleh aplikasi → order yang dibuat saat login disimpan dengan customerUid.
-- Mitra: daftar akun mitra → dibuat role partner_pending dan pengajuan. Admin harus menyetujui pendaftaran di dashboard admin; proses persetujuan menghubungkan user profile dengan partnerId dan mengaktifkan role partner.
-- Untuk aplikasi mitra yang dibuat lewat formulir publik lama tanpa akun, akun tidak terhubung otomatis; gunakan pendaftaran mitra dari menu Akun untuk alur dashboard.
+## Publikasikan melalui GitHub Pages
+1. Unggah semua file paket ini ke root repository GitHub Pages pada branch `main`.
+2. Buka **Settings → Pages**, pilih **Deploy from a branch → main → /(root)**.
+3. Setelah publikasi selesai, buka website dan refresh. Jika aplikasi sudah terpasang, tutup dan buka kembali agar pembaruan termuat.
 
-## Penting
-- GitHub Pages hanya hosting statis; rules harus dipublish ke Firebase Console secara terpisah.
-- Tidak memakai Cloud Functions atau Firebase Storage. Foto menggunakan URL HTTPS.
-- Checkout tamu masih diizinkan, tetapi pelanggan harus login saat memesan agar pesanan masuk Dashboard Pelanggan.
-- Mitra hanya dapat membaca pesanan setelah pesanan dikonfirmasi admin dan `assignedPartnerIds` ditulis oleh dashboard. Mitra tidak dapat mengubah status pesanan, harga, stok, atau pembayaran lewat client.
-- Firebase web config berada di frontend; keamanan datang dari Firestore Rules. Jangan commit service-account key, private key, password admin, atau token rahasia.
-- Setelah deploy, hard refresh (`Ctrl + Shift + R`) dan tutup-buka PWA agar cache baru dimuat.
+## Persiapan Firebase
+1. Pada project `box-kita`, aktifkan Authentication **Email/Password** dan buat database Cloud Firestore.
+2. Tambahkan domain GitHub Pages, misalnya `USERNAME.github.io`, pada Authentication → Settings → Authorized domains.
+3. Publikasikan isi `firestore.rules` melalui Firestore Database → Rules.
+4. Untuk admin pertama, buka situs dengan parameter `?portal=admin`, pilih pendaftaran akun pengelola, lalu salin UID yang ditampilkan.
+5. Di Firestore, buat dokumen `users/{UID}` dengan `role` (string) bernilai `admin` dan `active` (boolean) bernilai `true`. Login melalui `?portal=admin`.
+6. Setelah masuk, tambahkan data mitra, katalog menu, harga modal, harga jual, dan stok sebenarnya melalui dashboard pengelola.
 
+## Akses akun
+- **Pelanggan:** daftar atau login melalui menu Akun untuk melihat pesanan sendiri.
+- **Mitra:** daftar melalui formulir mitra; dashboard baru aktif setelah pengajuan disetujui dan akun ditautkan.
+- **Pengelola:** login melalui `?portal=admin`; dashboard hanya dibuka bila role admin dan status aktif berhasil diverifikasi.
 
-## Tambahan V13 — Area pengelola dan analitik
-- Indikator sidebar diperbarui menjadi **Area Pengelola Aktif** dengan ikon terbuka. Ini perubahan tampilan di dalam dashboard, bukan penghapusan verifikasi admin.
-- Menu **Analitik & Laporan** menampilkan omzet terbayar, margin kotor, jumlah box, nilai pesanan rata-rata, tren omzet 7 hari, menu terlaris, performa mitra, area penjualan, dan peringatan operasional.
-- Tersedia ekspor CSV untuk pesanan, menu & harga, mitra, serta pembayaran. File pesanan dapat mengandung data pribadi pelanggan; simpan secara aman.
-- Setelah memperbarui GitHub, lakukan hard refresh (Ctrl + Shift + R). Cache PWA berubah ke V13.
-
-
-## V14: navigasi PWA responsif
-Gunakan `PANDUAN_NAVIGASI_PWA_V14.md` untuk penjelasan perbaikan header, menu mobile, anchor offset, dan cache update.
+## Operasional
+- Menu katalog, pendaftaran, dan pesanan dibaca/ditulis melalui Firestore. Jika koneksi atau akses database gagal, aplikasi menampilkan pesan layanan dan tidak membuat pesanan sampai layanan kembali tersedia.
+- Isi `WA_ADMIN` dan `PAYMENT_INFO` di `app.js` dengan nomor WhatsApp serta rekening resmi BoxKita sebelum mengaktifkan konfirmasi WhatsApp dan menampilkan detail pembayaran.
+- Tidak menggunakan Cloud Functions. Pengelolaan pesanan dan pembayaran mitra dilakukan langsung melalui aplikasi dan Firestore Rules; verifikasi pembayaran tetap manual.
+- Pantau kuota gratis Firebase. Jangan menyimpan password, private key, atau service-account key dalam repository publik.
