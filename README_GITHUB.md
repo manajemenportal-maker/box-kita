@@ -1,4 +1,4 @@
-# BoxKita V12 — GitHub Pages + Firebase Spark
+# BoxKita V13 — GitHub Pages + Firebase Spark
 
 ## Perubahan V12
 - Navigasi publik tidak menampilkan tombol Pengelola. Login admin hanya melalui URL khusus `?portal=admin` atau `#pengelola`.
@@ -34,3 +34,14 @@
 - Mitra hanya dapat membaca pesanan setelah pesanan dikonfirmasi admin dan `assignedPartnerIds` ditulis oleh dashboard. Mitra tidak dapat mengubah status pesanan, harga, stok, atau pembayaran lewat client.
 - Firebase web config berada di frontend; keamanan datang dari Firestore Rules. Jangan commit service-account key, private key, password admin, atau token rahasia.
 - Setelah deploy, hard refresh (`Ctrl + Shift + R`) dan tutup-buka PWA agar cache baru dimuat.
+
+
+## Tambahan V13 — Area pengelola dan analitik
+- Indikator sidebar diperbarui menjadi **Area Pengelola Aktif** dengan ikon terbuka. Ini perubahan tampilan di dalam dashboard, bukan penghapusan verifikasi admin.
+- Menu **Analitik & Laporan** menampilkan omzet terbayar, margin kotor, jumlah box, nilai pesanan rata-rata, tren omzet 7 hari, menu terlaris, performa mitra, area penjualan, dan peringatan operasional.
+- Tersedia ekspor CSV untuk pesanan, menu & harga, mitra, serta pembayaran. File pesanan dapat mengandung data pribadi pelanggan; simpan secara aman.
+- Setelah memperbarui GitHub, lakukan hard refresh (Ctrl + Shift + R). Cache PWA berubah ke V13.
+
+
+## V14: navigasi PWA responsif
+Gunakan `PANDUAN_NAVIGASI_PWA_V14.md` untuk penjelasan perbaikan header, menu mobile, anchor offset, dan cache update.

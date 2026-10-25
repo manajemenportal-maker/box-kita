@@ -115,3 +115,119 @@
 .mobile-nav .mobile-admin-entry.hidden{display:none!important}
 .nav-actions #adminDashboardEntry.hidden{display:none!important}
 @media(max-width:760px){.nav-actions #adminDashboardEntry:not(.hidden){display:inline-flex!important;font-size:9px;padding:8px 9px;white-space:nowrap;max-width:140px}.mobile-nav .mobile-admin-entry:not(.hidden){display:flex!important}}
+
+
+/* V13: unlocked admin workspace indicator + advanced analytics and export tools */
+.secure-note-open{border-color:#386649;background:linear-gradient(120deg,#203c2c,#29382d)}
+.secure-note-open>span:first-child{color:#7bdb9b}
+.secure-note-open small{color:#aed7b9}
+.new-feature-badge{margin-left:auto;font-size:7px;letter-spacing:.4px;font-style:normal;background:#fff0e6;color:#bd4b23;border-radius:6px;padding:4px 5px}
+.analytics-toolbar{display:flex;align-items:end;justify-content:space-between;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid #e8ebef;border-radius:15px;padding:13px 15px;margin-bottom:16px}
+.analytics-toolbar>label{display:grid;gap:6px;font-size:10px;font-weight:850;color:#747a82;min-width:160px}
+.analytics-toolbar-actions{display:flex;gap:7px;flex-wrap:wrap}
+.analytics-toolbar-actions .btn{white-space:nowrap}
+.analytics-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:13px;margin-bottom:16px}
+.analytics-kpi{min-width:0;border:1px solid #e8ebef;border-radius:17px;background:linear-gradient(145deg,#fff,#fbfcfd);padding:17px;display:grid;gap:10px;box-shadow:0 7px 18px #22260605}
+.analytics-kpi>span{font-size:10px;font-weight:850;color:#858c94;display:flex;align-items:center;gap:7px}
+.analytics-kpi>b{font:800 clamp(17px,2vw,25px) Manrope;letter-spacing:-.7px;overflow-wrap:anywhere;color:#292e33}
+.analytics-kpi>small{font-size:9px;color:#8b9299;line-height:1.55}
+.analytics-layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,1fr);gap:15px;margin-bottom:16px}
+.analytics-trend-panel,.analytics-alert-panel,.analytics-table-panel{min-width:0}
+.analytics-chart-icon{display:grid;place-items:center;width:34px;height:34px;border-radius:11px;background:#fff0e7;color:#dc5528;font-size:18px;font-weight:900}
+.analytics-bars{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;padding:18px 18px 16px;min-height:215px;align-items:end}
+.analytics-bar-column{min-width:0;display:grid;grid-template-rows:19px 126px 18px 14px;gap:6px;justify-items:center;align-items:end}
+.analytics-bar-value{font-size:8px;color:#6b737a;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.analytics-bar-track{width:min(100%,35px);height:126px;background:#f4f5f6;border-radius:10px 10px 5px 5px;display:flex;align-items:end;overflow:hidden}
+.analytics-bar-fill{width:100%;min-height:0;background:linear-gradient(180deg,#ff9b65,#ef5b2a);border-radius:10px 10px 4px 4px;transition:height .2s}
+.analytics-bar-column>b{font-size:9px;color:#434a51}
+.analytics-bar-column>small{font-size:8px;color:#9aa0a6}
+.analytics-alert-list{padding:4px 14px}
+.analytics-alert{width:100%;display:grid;grid-template-columns:29px minmax(0,1fr) 17px;gap:8px;align-items:center;text-align:left;border:0;border-bottom:1px solid #f0f2f4;background:#fff;padding:12px 3px;color:#343a40;cursor:pointer}
+.analytics-alert:last-child{border-bottom:0}
+.analytics-alert>span:first-child{font-size:19px}
+.analytics-alert>span:nth-child(2){display:grid;gap:4px;min-width:0}
+.analytics-alert b{font-size:10px}
+.analytics-alert small{font-size:9px;color:#899098;line-height:1.5}
+.analytics-alert>i{font-style:normal;color:#e35a2c;font-weight:900}
+.analytics-alert:hover b{color:#d65329}
+.analytics-payout-note{display:grid;gap:6px;margin:7px 14px 14px;border-radius:12px;background:#f7f9fa;padding:13px}
+.analytics-payout-note>span{font-size:9px;font-weight:850;color:#838b92}
+.analytics-payout-note>b{font:800 19px Manrope;letter-spacing:-.4px}
+.analytics-payout-note>small{font-size:9px;line-height:1.5;color:#8b9299}
+.analytics-table-panel{margin-bottom:16px}
+.analytics-table{min-width:480px}
+.analytics-footnote{font-size:9px;line-height:1.7;color:#8b9299;padding:6px 2px;margin:3px 0 0}
+@media(max-width:1080px){.analytics-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-layout{grid-template-columns:1fr}}
+@media(max-width:760px){.analytics-toolbar{align-items:stretch}.analytics-toolbar>label{width:100%}.analytics-toolbar-actions{display:grid;grid-template-columns:1fr 1fr}.analytics-toolbar-actions .btn{width:100%;justify-content:center}.analytics-kpi-grid{gap:8px}.analytics-kpi{padding:13px;border-radius:14px}.analytics-kpi>b{font-size:17px}.analytics-kpi>small{font-size:8px}.analytics-bars{gap:4px;padding:13px 9px}.analytics-bar-column{grid-template-rows:19px 110px 18px 14px;gap:5px}.analytics-bar-track{height:110px}.analytics-bar-value{font-size:7px}.analytics-alert-panel .panel-head,.analytics-trend-panel .panel-head{padding:13px}.analytics-table{min-width:500px}}
+
+
+/* V14 responsive PWA navigation: one alignment system for desktop, tablet and mobile. */
+:root { --site-header-height: 78px; }
+html { scroll-padding-top: calc(var(--site-header-height) + 12px); }
+section[id] { scroll-margin-top: calc(var(--site-header-height) + 12px); }
+.topbar { height: auto; min-height: var(--site-header-height); overflow: visible; }
+.topbar .nav { height: auto; min-height: var(--site-header-height); }
+.main-nav { flex: 1 1 auto; min-width: 0; justify-content: center; gap: clamp(8px, 1.05vw, 17px); }
+.main-nav .site-nav-link { position: relative; display: inline-flex; align-items: center; min-height: 42px; white-space: nowrap; font-size: clamp(10px, .91vw, 12px); }
+.main-nav .site-nav-link::after { content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 2px; border-radius: 2px; background: var(--orange); transform: scaleX(0); transform-origin: center; transition: transform .18s ease; }
+.main-nav .site-nav-link:hover, .main-nav .site-nav-link.is-current { color: var(--orange); }
+.main-nav .site-nav-link.is-current::after { transform: scaleX(1); }
+.nav-actions { flex: 0 0 auto; }
+.mobile-menu { display: none; }
+.mobile-nav { display: none; }
+.mobile-nav .site-nav-link { min-height: 45px; display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 11px; color: #655e57; font-size: 13px; font-weight: 800; border: 1px solid transparent; }
+.mobile-nav .site-nav-link > span { width: 25px; flex: 0 0 25px; text-align: center; font-size: 16px; }
+.mobile-nav .site-nav-link:hover, .mobile-nav .site-nav-link.is-current { color: var(--orange); background: #fff0e7; border-color: #f5d9c7; }
+.mobile-nav .mobile-nav-link-list { display: grid; gap: 3px; }
+.mobile-nav .mobile-nav-tools { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 8px; border-top: 1px solid #f0e6de; margin-top: 10px; padding-top: 12px; }
+.mobile-nav .mobile-account-entry, .mobile-nav .mobile-install-entry { display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 43px; padding: 10px; border: 1px solid #eee0d4; border-radius: 12px; background: #fff; color: #66564b; text-align: center; font-size: 11px; font-weight: 850; line-height: 1.3; margin: 0; }
+.mobile-nav .mobile-account-entry { background: #fff4eb; border-color: #f2d7c5; color: #9f4824; }
+.mobile-nav .mobile-install-entry { background: #272722; color: #fff; border-color: #272722; }
+.mobile-nav .mobile-admin-entry { width: 100%; margin-top: 9px; }
+.nav-actions .cart-symbol { display: inline-block; line-height: 1; }
+.nav-actions #cartOpenBtn { white-space: nowrap; }
+@media (max-width: 1050px) {
+  :root { --site-header-height: 70px; }
+  .main-nav { display: none !important; }
+  .topbar .nav { gap: 12px; }
+  .mobile-menu { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 42px; width: 42px; height: 42px; border: 1px solid #eee0d4; border-radius: 12px; background: #fff; color: #342e28; font-size: 19px; line-height: 1; }
+  .mobile-nav:not(.hidden) { display: flex; flex-direction: column; gap: 0; position: absolute; top: 100%; left: 0; right: 0; z-index: 25; max-height: calc(100dvh - var(--site-header-height) - env(safe-area-inset-top)); overflow-y: auto; overscroll-behavior: contain; padding: 12px 16px max(15px, env(safe-area-inset-bottom)); background: #fffdf9; border-bottom: 1px solid #eee1d5; border-radius: 0 0 19px 19px; box-shadow: 0 18px 35px #39231520; }
+  .mobile-nav.hidden { display: none !important; }
+}
+@media (max-width: 760px) {
+  :root { --site-header-height: 66px; }
+  .container { width: calc(100% - 32px); }
+  .topbar .nav { min-height: var(--site-header-height); gap: 8px; }
+  .nav-actions { gap: 7px; }
+  .nav-actions .install-trigger, .nav-actions .account-entry, .nav-actions #adminDashboardEntry { display: none !important; }
+  .nav-actions #cartOpenBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 8px 10px; font-size: 11px; border-radius: 12px; }
+  .nav-actions #cartBadge { width: 20px; height: 20px; }
+  .mobile-menu { width: 40px; height: 40px; flex-basis: 40px; }
+  .mobile-nav:not(.hidden) { padding-left: 16px; padding-right: 16px; }
+  .mobile-nav .site-nav-link { font-size: 13px; min-height: 44px; }
+  .hero, .section, .barokah-section, .snackbox-section { scroll-margin-top: calc(var(--site-header-height) + 10px); }
+}
+@media (max-width: 420px) {
+  .container { width: calc(100% - 24px); }
+  .topbar .nav { gap: 6px; }
+  .brand { gap: 6px; font-size: 19px; letter-spacing: -.8px; }
+  .brand-icon { width: 35px; height: 35px; flex-basis: 35px; font-size: 19px; border-radius: 11px; }
+  .brand small { letter-spacing: .8px; font-size: 7px; }
+  .nav-actions { gap: 5px; }
+  .nav-actions #cartOpenBtn { padding: 8px; gap: 5px; }
+  .nav-actions #cartOpenBtn .cart-label { display: none; }
+  .mobile-menu { width: 37px; height: 40px; flex-basis: 37px; padding: 7px; }
+  .mobile-nav .mobile-nav-tools { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .main-nav .site-nav-link::after { transition: none; }
+}
+@media (max-width: 760px) {
+  /* Keep the admin launch inside the authenticated drawer, never in the public top row. */
+  .nav-actions #adminDashboardEntry:not(.hidden) { display: none !important; }
+}
+/* Respect device safe areas in installed PWA mode (notch/status bar). */
+.topbar { padding-top: env(safe-area-inset-top, 0px); }
+html { scroll-padding-top: calc(var(--site-header-height) + env(safe-area-inset-top, 0px) + 12px); }
+section[id] { scroll-margin-top: calc(var(--site-header-height) + env(safe-area-inset-top, 0px) + 12px); }

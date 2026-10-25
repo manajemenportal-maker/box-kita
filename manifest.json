@@ -1,8 +1,8 @@
 {
   "id": "./",
-  "name": "BoxKita — Layanan Nasi Box",
+  "name": "BoxKita — Layanan Nasi Box V14",
   "short_name": "BoxKita",
-  "description": "Layanan nasi box dan aneka kue di Jabodetabek dengan dashboard terpisah untuk pelanggan, mitra, dan pengelola aktif.",
+  "description": "Layanan nasi box dan aneka kue dengan navigasi PWA responsif dan sinkron.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

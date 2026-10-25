@@ -108,8 +108,91 @@ function getSimulationState(){
 function persistSimulation(){if(!IS_DEMO||!simulationState)return;try{localStorage.setItem(SIM_STORAGE_KEY,JSON.stringify(simulationState));}catch(error){console.warn('Could not save simulation data',error);showToast('Penyimpanan browser penuh atau dinonaktifkan.');}}
 function simulationId(prefix){return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`.toUpperCase();}
 function localStamp(){return new Date().toISOString();}
-let products = [], partners = [], orders = [], applications = [], settlements = [], cart = {}, selectedCategory = 'all', currentAdmin = null, currentSessionUser = null, currentProfile = null, currentRole = null, activeView = 'overview', roleDashboardView = 'overview', lastOrderMessage = '', cachedModalSubmit = null, authRouteSequence = 0;
+let products = [], partners = [], orders = [], applications = [], settlements = [], cart = {}, selectedCategory = 'all', currentAdmin = null, currentSessionUser = null, currentProfile = null, currentRole = null, activeView = 'overview', roleDashboardView = 'overview', lastOrderMessage = '', cachedModalSubmit = null, authRouteSequence = 0, analyticsPeriod = '30';
 const byId = id => document.getElementById(id);
+
+// Navigasi situs dibuat satu sumber: link desktop dan mobile menunjuk ke bagian halaman yang sama.
+const SITE_NAV_IDS = ['program-jumat', 'program-box-kita', 'menu', 'cara', 'mitra', 'gabung'];
+const SITE_NAV_SELECTOR = '[data-site-nav]';
+function closeMobileNav() {
+  const panel = byId('mobileNav');
+  const trigger = byId('mobileMenuBtn');
+  if (panel) panel.classList.add('hidden');
+  if (trigger) {
+    trigger.setAttribute('aria-expanded', 'false');
+    trigger.setAttribute('aria-label', 'Buka navigasi');
+  }
+}
+function setActiveSiteNav(sectionId) {
+  document.querySelectorAll(SITE_NAV_SELECTOR).forEach(link => {
+    const active = link.getAttribute('href') === `#${sectionId}`;
+    link.classList.toggle('is-current', active);
+    if (active) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  });
+}
+function scrollToSiteSection(sectionId, pushHistory = false) {
+  const target = byId(sectionId);
+  if (!target) return;
+  closeMobileNav();
+  if (pushHistory && window.location.hash !== `#${sectionId}`) {
+    window.history.pushState({boxKitaSection: sectionId}, '', `#${sectionId}`);
+  }
+  const header = byId('siteTopbar');
+  const offset = (header ? header.getBoundingClientRect().height : 78) + 12;
+  const destination = Math.max(0, window.scrollY + target.getBoundingClientRect().top - offset);
+  const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  window.scrollTo({top: destination, behavior: reducedMotion ? 'auto' : 'smooth'});
+  setActiveSiteNav(sectionId);
+}
+function updateSiteNavFromScroll() {
+  const header = byId('siteTopbar');
+  const threshold = (header ? header.getBoundingClientRect().height : 78) + 20;
+  const first = byId(SITE_NAV_IDS[0]);
+  let activeId = null;
+  for (const id of SITE_NAV_IDS) {
+    const section = byId(id);
+    if (!section) continue;
+    if (section.getBoundingClientRect().top <= threshold) activeId = id;
+    else break;
+  }
+  // Di bagian akhir halaman, pilih bagian nav terdekat walau batas scroll mencegahnya mencapai atas layar.
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 24) {
+    const nearest = SITE_NAV_IDS.map(id => ({id, top: byId(id)?.getBoundingClientRect().top ?? Infinity}))
+      .filter(item => Number.isFinite(item.top))
+      .sort((a, b) => Math.abs(a.top - threshold) - Math.abs(b.top - threshold))[0];
+    if (nearest) activeId = nearest.id;
+  }
+  if (first && window.scrollY < first.offsetTop - threshold - 40) activeId = null;
+  document.querySelectorAll(SITE_NAV_SELECTOR).forEach(link => {
+    const active = link.getAttribute('href') === (activeId ? `#${activeId}` : '');
+    link.classList.toggle('is-current', active);
+    if (active) link.setAttribute('aria-current', 'location');
+    else link.removeAttribute('aria-current');
+  });
+}
+let siteNavScrollTick = false;
+window.addEventListener('scroll', () => {
+  if (siteNavScrollTick) return;
+  siteNavScrollTick = true;
+  window.requestAnimationFrame(() => { updateSiteNavFromScroll(); siteNavScrollTick = false; });
+}, {passive: true});
+window.addEventListener('resize', updateSiteNavFromScroll, {passive: true});
+window.addEventListener('popstate', () => {
+  const id = window.location.hash.slice(1);
+  if (SITE_NAV_IDS.includes(id)) scrollToSiteSection(id, false);
+  else updateSiteNavFromScroll();
+});
+document.querySelectorAll(SITE_NAV_SELECTOR).forEach(link => link.addEventListener('click', event => {
+  event.preventDefault();
+  scrollToSiteSection(link.getAttribute('href').slice(1), true);
+}));
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeMobileNav(); });
+document.addEventListener('click', event => {
+  const panel = byId('mobileNav');
+  if (panel && !panel.classList.contains('hidden') && !event.target.closest('#siteTopbar')) closeMobileNav();
+});
+updateSiteNavFromScroll();
 const money = value => 'Rp' + Math.round(Number(value || 0)).toLocaleString('id-ID');
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const formatDate = value => { if (!value) return '—'; const d = value?.toDate ? value.toDate() : (value instanceof Date ? value : new Date(value)); return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}); };
@@ -191,8 +274,8 @@ byId('cartLines').addEventListener('click',e=>{const minus=e.target.closest('[da
 byId('searchInput').addEventListener('input',renderProducts);
 byId('categoryFilter').addEventListener('change',e=>{selectedCategory=e.target.value;document.querySelectorAll('.category-chip').forEach(b=>b.classList.toggle('active',b.dataset.category===selectedCategory));renderProducts();});
 byId('sortFilter').addEventListener('change',renderProducts);
-byId('jumatBarokahBtn')?.addEventListener('click',()=>{selectedCategory='Jumat Barokah';byId('searchInput').value='';byId('sortFilter').value='featured';byId('categoryFilter').value=selectedCategory;document.querySelectorAll('.category-chip').forEach(b=>b.classList.toggle('active',b.dataset.category===selectedCategory));renderProducts();byId('menu').scrollIntoView({behavior:'smooth'});});
-byId('boxKitaBtn')?.addEventListener('click',()=>{selectedCategory='Box Kita';byId('searchInput').value='';byId('sortFilter').value='featured';byId('categoryFilter').value=selectedCategory;document.querySelectorAll('.category-chip').forEach(b=>b.classList.toggle('active',b.dataset.category===selectedCategory));renderProducts();byId('menu').scrollIntoView({behavior:'smooth'});});
+byId('jumatBarokahBtn')?.addEventListener('click',()=>{selectedCategory='Jumat Barokah';byId('searchInput').value='';byId('sortFilter').value='featured';byId('categoryFilter').value=selectedCategory;document.querySelectorAll('.category-chip').forEach(b=>b.classList.toggle('active',b.dataset.category===selectedCategory));renderProducts();scrollToSiteSection('menu', false);});
+byId('boxKitaBtn')?.addEventListener('click',()=>{selectedCategory='Box Kita';byId('searchInput').value='';byId('sortFilter').value='featured';byId('categoryFilter').value=selectedCategory;document.querySelectorAll('.category-chip').forEach(b=>b.classList.toggle('active',b.dataset.category===selectedCategory));renderProducts();scrollToSiteSection('menu', false);});
 byId('categoryChips').addEventListener('click',e=>{const chip=e.target.closest('[data-category]');if(!chip)return;selectedCategory=chip.dataset.category;byId('categoryFilter').value=selectedCategory;document.querySelectorAll('.category-chip').forEach(b=>b.classList.toggle('active',b===chip));renderProducts();});
 byId('cartOpenBtn').addEventListener('click',()=>{renderCart();openModal('cartModal');});
 byId('accountOpenBtn').addEventListener('click',openAccountEntry); byId('footerAccountBtn').addEventListener('click',openAccountEntry);
@@ -209,18 +292,18 @@ function openAdminEntry(){
  showAdminLoginPanel();openModal('loginModal');
 }
 window.boxKitaAdminOpen = openAdminEntry;
-byId('mobileAccountBtn').addEventListener('click',()=>{byId('mobileNav').classList.add('hidden');openAccountEntry();});
-byId('mobileAdminDashboardEntry').addEventListener('click',()=>{byId('mobileNav').classList.add('hidden');if(currentRole==='admin'&&currentProfile?.active===true)showAdmin();});
+byId('mobileAccountBtn').addEventListener('click',()=>{closeMobileNav();openAccountEntry();});
+byId('mobileAdminDashboardEntry').addEventListener('click',()=>{closeMobileNav();if(currentRole==='admin'&&currentProfile?.active===true)showAdmin();});
 document.querySelectorAll('[data-close]').forEach(btn=>btn.addEventListener('click',()=>closeModal(btn.dataset.close)));
 document.addEventListener('click',e=>{const close=e.target.closest('[data-close]');if(close)closeModal(close.dataset.close);});
 document.querySelectorAll('.modal-backdrop').forEach(backdrop=>backdrop.addEventListener('click',e=>{if(e.target===backdrop)backdrop.classList.remove('show');}));
-byId('mobileMenuBtn').addEventListener('click',()=>byId('mobileNav').classList.toggle('hidden'));
-byId('mobileNav').addEventListener('click',e=>{if(e.target.closest('a'))byId('mobileNav').classList.add('hidden')});
+byId('mobileMenuBtn').addEventListener('click',()=>{const panel=byId('mobileNav');const open=panel.classList.contains('hidden');panel.classList.toggle('hidden',!open);byId('mobileMenuBtn').setAttribute('aria-expanded',String(open));byId('mobileMenuBtn').setAttribute('aria-label',open?'Tutup navigasi':'Buka navigasi');});
 // Portal akun pelanggan/mitra tersedia pada navigasi mobile. Akses admin memakai jalur tersembunyi (?portal=admin).
 byId('installBtn').addEventListener('click',installPWA); if(byId('footerInstallBtn'))byId('footerInstallBtn').addEventListener('click',e=>{e.preventDefault();installPWA();});
 let deferredInstall = null;
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();deferredInstall=event;byId('installBtn').classList.remove('hidden');});
 async function installPWA(){ if(deferredInstall){deferredInstall.prompt();await deferredInstall.userChoice;deferredInstall=null;}else showToast('Di Chrome/Edge, gunakan ikon Install di address bar atau menu browser → Install aplikasi.'); }
+byId('mobileInstallBtn').addEventListener('click',()=>{closeMobileNav();installPWA();});
 
 byId('partnerApplicationForm').addEventListener('submit', async event=>{
  event.preventDefault(); const form=event.currentTarget, data={businessName:getVal(form,'businessName'),contactName:getVal(form,'contactName'),phone:getVal(form,'phone'),area:getVal(form,'area'),capacity:getVal(form,'capacity'),specialty:getVal(form,'specialty'),notes:getVal(form,'notes')};
@@ -523,7 +606,7 @@ async function refreshAdminData(){if(!currentAdmin)return;setBusy(true,'Memuat d
  byId('pendingOrderBadge').textContent=orders.filter(o=>['new','confirmed'].includes(o.status)).length;byId('pendingPartnerBadge').textContent=applications.filter(a=>a.status==='pending').length;renderAdminView();
  }catch(error){console.error(error);byId('adminView').innerHTML=`<div class="admin-page-title"><div><h1>Dashboard belum termuat</h1><p>${escapeHtml(error.message||'Periksa rules Firestore, role admin, dan koneksi.')}</p></div></div>`;}finally{setBusy(false);}}
 function adminPageHeader(title,subtitle,actionLabel='',actionId=''){return `<div class="admin-page-title"><div><h1>${escapeHtml(title)}</h1><p>${escapeHtml(subtitle)}</p></div>${actionLabel?`<button class="btn btn-primary" id="${actionId}">＋ ${escapeHtml(actionLabel)}</button>`:''}</div>`;}
-function renderAdminView(){const host=byId('adminView');byId('adminPageName').textContent=({overview:'Ringkasan',orders:'Pesanan',products:'Menu & Harga',partners:'Mitra & Pendaftar',settlements:'Pembayaran Mitra'}[activeView]||'Dashboard'); if(activeView==='overview')host.innerHTML=renderOverview();if(activeView==='orders')host.innerHTML=renderOrders();if(activeView==='products')host.innerHTML=renderProductsAdmin();if(activeView==='partners')host.innerHTML=renderPartnersAdmin();if(activeView==='settlements')host.innerHTML=renderSettlementsAdmin();bindAdminViewEvents();}
+function renderAdminView(){const host=byId('adminView');byId('adminPageName').textContent=({overview:'Ringkasan',orders:'Pesanan',products:'Menu & Harga',partners:'Mitra & Pendaftar',settlements:'Pembayaran Mitra',analytics:'Analitik & Laporan'}[activeView]||'Dashboard'); if(activeView==='overview')host.innerHTML=renderOverview();if(activeView==='orders')host.innerHTML=renderOrders();if(activeView==='products')host.innerHTML=renderProductsAdmin();if(activeView==='partners')host.innerHTML=renderPartnersAdmin();if(activeView==='settlements')host.innerHTML=renderSettlementsAdmin();if(activeView==='analytics')host.innerHTML=renderAnalyticsAdmin();bindAdminViewEvents();}
 function sum(rows,key){return rows.reduce((s,r)=>s+Number(r[key]||0),0)}
 function renderOverview(){
  const today=new Date();today.setHours(0,0,0,0);const orderToday=orders.filter(o=>{const d=o.createdAt?.toDate?o.createdAt.toDate():new Date(o.createdAt||0);return d>=today;});const activeOrders=orders.filter(o=>!['delivered','cancelled'].includes(o.status));const confirmedRevenue=orders.filter(o=>o.paymentStatus==='paid'&&o.status!=='cancelled').reduce((s,o)=>s+Number(o.total||0),0);const expectedMargin=orders.filter(o=>o.paymentStatus==='paid'&&o.status!=='cancelled').reduce((s,o)=>s+Number(o.platformMargin||0),0);const duePayout=orders.filter(o=>o.paymentStatus==='paid'&&o.status==='delivered').reduce((s,o)=>s+(o.items||[]).filter(i=>i.settlementStatus!=='paid').reduce((t,i)=>t+Number(i.partnerCostTotal??Number(i.costPrice||0)*Number(i.qty||0)),0),0);
@@ -557,7 +640,59 @@ function renderSettlementsAdmin(){
  <div class="section-kicker" style="margin:24px 0 12px">REKAP PER MITRA</div><div class="settlement-grid">${cards.length?cards.map(c=>`<article class="settlement-card"><h3>${escapeHtml(c.partnerName)}</h3><p>${c.orders.size} pesanan · ${c.units} box · Pesanan terkirim & terbayar</p><div class="settlement-amount">${money(c.amount)}</div><div class="settlement-meta">Nominal dihitung dari biaya modal setiap item, bukan harga jual pelanggan.</div><button class="btn btn-primary btn-full" data-settle-partner="${escapeHtml(c.partnerId)}">Catat pembayaran & lunasi ↗</button></article>`).join(''):'<div class="admin-panel" style="padding:20px"><div class="empty-panel">Belum ada pembayaran mitra yang perlu dicatat. Tandai pesanan sebagai sudah dibayar dan terkirim terlebih dahulu.</div></div>'}</div>
  <section class="admin-panel" style="margin-top:22px"><div class="panel-head"><div><h3>Riwayat pembayaran</h3><p>Semua pembayaran yang telah dicatat dari dashboard ini.</p></div></div><div class="data-table-wrap"><table class="data-table"><thead><tr><th>Kode pembayaran</th><th>Mitra</th><th>Tanggal</th><th>Jumlah</th><th>Metode / referensi</th><th>Pesanan tercakup</th></tr></thead><tbody>${settlements.length?[...settlements].sort((a,b)=>dateMs(b.createdAt)-dateMs(a.createdAt)).map(s=>`<tr><td><b>${escapeHtml(s.settlementCode||s.id)}</b></td><td>${escapeHtml(s.partnerName||partners.find(p=>p.id===s.partnerId)?.name||'—')}</td><td>${formatDateTime(s.createdAt)}</td><td><b>${money(s.amount)}</b></td><td>${escapeHtml(s.method||'—')}<small>${escapeHtml(s.reference||'')}</small></td><td>${escapeHtml((s.orderCodes||[]).join(', ')||`${(s.orderIds||[]).length} pesanan`)}</td></tr>`).join(''):'<tr><td colspan="6"><div class="empty-panel">Belum ada riwayat pembayaran.</div></td></tr>'}</tbody></table></div></section>`;
 }
-function bindAdminViewEvents(){if(activeView==='overview'){document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>switchAdminView(b.dataset.goto)));}
+function getAnalyticsOrders(){
+ const days=analyticsPeriod==='all'?0:Number(analyticsPeriod||30);
+ if(!days)return [...orders];
+ const cutoff=Date.now()-days*24*60*60*1000;
+ return orders.filter(o=>dateMs(o.createdAt)>=cutoff);
+}
+function orderGrossMargin(o){
+ if(Number.isFinite(Number(o.platformMargin)))return Number(o.platformMargin||0);
+ return (o.items||[]).reduce((sum,i)=>sum+Number(i.platformMargin??((Number(i.unitPrice||0)-Number(i.costPrice||0))*Number(i.qty||0))),0);
+}
+function analyticsProductRows(sourceOrders){
+ const catalog=window.adminProducts||[];const byId=new Map(catalog.map(p=>[String(p.id),p]));const map=new Map();
+ for(const o of sourceOrders){if(o.paymentStatus!=='paid'||o.status==='cancelled')continue;for(const i of (o.items||[])){
+  const id=String(i.productId||i.id||i.name||'menu');const p=byId.get(id)||{};const qty=Number(i.qty||0);const unit=Number(i.unitPrice??p.salePrice??0);const total=Number(i.lineTotal??unit*qty);const cost=Number(i.partnerCostTotal??Number(i.costPrice??p.costPrice??0)*qty);const margin=Number(i.platformMargin??(total-cost));
+  const row=map.get(id)||{id,name:i.name||p.name||id,category:i.category||p.category||'Lainnya',units:0,revenue:0,cost:0,margin:0,orders:0};row.units+=qty;row.revenue+=total;row.cost+=cost;row.margin+=margin;row.orders+=1;map.set(id,row);
+ }}
+ return [...map.values()].sort((a,b)=>b.revenue-a.revenue);
+}
+function renderAnalyticsAdmin(){
+ const filtered=getAnalyticsOrders();const paid=filtered.filter(o=>o.paymentStatus==='paid'&&o.status!=='cancelled'&&o.paymentStatus!=='refunded');
+ const revenue=paid.reduce((sum,o)=>sum+Number(o.total||0),0);const margin=paid.reduce((sum,o)=>sum+orderGrossMargin(o),0);const payout=paid.filter(o=>o.status==='delivered').reduce((sum,o)=>sum+(o.items||[]).filter(i=>i.settlementStatus!=='paid').reduce((t,i)=>t+Number(i.partnerCostTotal??Number(i.costPrice||0)*Number(i.qty||0)),0),0);
+ const units=paid.reduce((sum,o)=>sum+Number(o.itemCount??(o.items||[]).reduce((n,i)=>n+Number(i.qty||0),0)),0);const avg=paid.length?revenue/paid.length:0;
+ const trend=Array.from({length:7},(_,idx)=>{const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-(6-idx));const key=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;const rows=paid.filter(o=>{const v=dateMs(o.createdAt);if(!Number.isFinite(v))return false;const od=new Date(v);const orderKey=`${od.getFullYear()}-${String(od.getMonth()+1).padStart(2,'0')}-${String(od.getDate()).padStart(2,'0')}`;return orderKey===key;});return {key,label:d.toLocaleDateString('id-ID',{weekday:'short'}),amount:rows.reduce((a,o)=>a+Number(o.total||0),0),orders:rows.length};});const maxTrend=Math.max(1,...trend.map(x=>x.amount));
+ const best=analyticsProductRows(filtered).slice(0,5);
+ const areasMap=new Map();paid.forEach(o=>{const area=o.customer?.deliveryArea||o.deliveryArea||'Belum ditentukan';const row=areasMap.get(area)||{area,orders:0,revenue:0};row.orders++;row.revenue+=Number(o.total||0);areasMap.set(area,row);});const topAreas=[...areasMap.values()].sort((a,b)=>b.revenue-a.revenue).slice(0,5);
+ const partnerMap=new Map();for(const o of paid){for(const i of (o.items||[])){const pid=i.partnerId||o.partnerId||'unknown';const row=partnerMap.get(pid)||{id:pid,name:i.partnerName||o.partnerName||partners.find(p=>p.id===pid)?.name||'Mitra belum ditentukan',units:0,revenue:0,margin:0};row.units+=Number(i.qty||0);row.revenue+=Number(i.lineTotal??Number(i.unitPrice||0)*Number(i.qty||0));row.margin+=Number(i.platformMargin??((Number(i.unitPrice||0)-Number(i.costPrice||0))*Number(i.qty||0)));partnerMap.set(pid,row);}}
+ const topPartners=[...partnerMap.values()].sort((a,b)=>b.revenue-a.revenue).slice(0,5);
+ const alerts=[];const newOrders=filtered.filter(o=>o.status==='new').length;const unpaid=filtered.filter(o=>o.paymentStatus!=='paid'&&o.status!=='cancelled').length;const pendingApps=applications.filter(a=>a.status==='pending').length;const lowStock=(window.adminProducts||[]).filter(p=>p.status==='active'&&Number(p.stock||0)<=10);
+ if(newOrders)alerts.push({ico:'🧾',title:`${newOrders} pesanan baru`,desc:'Perlu ditinjau dan dikonfirmasi.',view:'orders'});
+ if(unpaid)alerts.push({ico:'💳',title:`${unpaid} pesanan belum dibayar`,desc:'Cek konfirmasi pembayaran secara manual.',view:'orders'});
+ if(pendingApps)alerts.push({ico:'🤝',title:`${pendingApps} pendaftar mitra menunggu`,desc:'Periksa data dan kapasitas usaha.',view:'partners'});
+ if(lowStock.length)alerts.push({ico:'📦',title:`${lowStock.length} menu stok tipis`,desc:'Stok aktif tinggal 10 box atau kurang.',view:'products'});
+ const productRows=best.length?best.map((p,i)=>`<tr><td><b>${i+1}. ${escapeHtml(p.name)}</b><small>${escapeHtml(p.category)}</small></td><td>${p.units}</td><td>${money(p.revenue)}</td><td class="margin-positive">${money(p.margin)}</td></tr>`).join(''):'<tr><td colspan="4"><div class="empty-panel">Belum ada data menu terjual dari pesanan yang sudah dibayar.</div></td></tr>';
+ const areaRows=topAreas.length?topAreas.map(a=>`<tr><td><b>${escapeHtml(a.area)}</b></td><td>${a.orders}</td><td>${money(a.revenue)}</td></tr>`).join(''):'<tr><td colspan="3"><div class="empty-panel">Data area akan muncul setelah ada pesanan terbayar.</div></td></tr>';
+ const partnerRows=topPartners.length?topPartners.map(p=>`<tr><td><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.id)}</small></td><td>${p.units}</td><td>${money(p.revenue)}</td><td class="margin-positive">${money(p.margin)}</td></tr>`).join(''):'<tr><td colspan="4"><div class="empty-panel">Belum ada performa mitra dari pesanan terbayar.</div></td></tr>';
+ return `${adminPageHeader('Analitik & laporan','Pantau tren penjualan, margin kotor, menu favorit pelanggan, performa mitra, dan area layanan.')}<div class="analytics-toolbar"><label>Periode laporan<select id="analyticsPeriod" class="admin-select"><option value="7" ${analyticsPeriod==='7'?'selected':''}>7 hari terakhir</option><option value="30" ${analyticsPeriod==='30'?'selected':''}>30 hari terakhir</option><option value="90" ${analyticsPeriod==='90'?'selected':''}>90 hari terakhir</option><option value="all" ${analyticsPeriod==='all'?'selected':''}>Semua data</option></select></label><div class="analytics-toolbar-actions"><button class="btn btn-ghost btn-sm" data-report-export="orders">⇩ Pesanan CSV</button><button class="btn btn-ghost btn-sm" data-report-export="products">⇩ Menu CSV</button><button class="btn btn-ghost btn-sm" data-report-export="partners">⇩ Mitra CSV</button><button class="btn btn-ghost btn-sm" data-report-export="settlements">⇩ Pembayaran CSV</button></div></div>
+ <div class="analytics-kpi-grid"><article class="analytics-kpi"><span>💳 Omzet terbayar</span><b>${money(revenue)}</b><small>${paid.length} pesanan terbayar · ${analyticsPeriod==='all'?'seluruh periode':`${analyticsPeriod} hari terakhir`}</small></article><article class="analytics-kpi"><span>📈 Margin kotor</span><b>${money(margin)}</b><small>Belum dipotong operasional, pajak, promosi, dan ongkir</small></article><article class="analytics-kpi"><span>🍱 Box terjual</span><b>${units.toLocaleString('id-ID')}</b><small>Dari pesanan yang telah dibayar</small></article><article class="analytics-kpi"><span>🧾 Rata-rata pesanan</span><b>${money(avg)}</b><small>Omzet terbayar dibagi jumlah pesanan</small></article></div>
+ <div class="analytics-layout"><section class="admin-panel analytics-trend-panel"><div class="panel-head"><div><h3>Tren omzet 7 hari terakhir</h3><p>Hanya pesanan berstatus sudah dibayar</p></div><span class="analytics-chart-icon">↗</span></div><div class="analytics-bars">${trend.map(d=>`<div class="analytics-bar-column"><div class="analytics-bar-value">${d.amount?escapeHtml(money(d.amount)):'—'}</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="height:${Math.max(d.amount?6:0,(d.amount/maxTrend)*100)}%" title="${escapeHtml(money(d.amount))}"></div></div><b>${escapeHtml(d.label)}</b><small>${d.orders} order</small></div>`).join('')}</div></section><section class="admin-panel analytics-alert-panel"><div class="panel-head"><div><h3>Pusat perhatian</h3><p>Hal operasional yang perlu dicek</p></div><span class="analytics-chart-icon">✦</span></div><div class="analytics-alert-list">${alerts.length?alerts.map(a=>`<button class="analytics-alert" type="button" data-goto="${a.view}"><span>${a.ico}</span><span><b>${escapeHtml(a.title)}</b><small>${escapeHtml(a.desc)}</small></span><i>↗</i></button>`).join(''):'<div class="empty-panel">Tidak ada peringatan prioritas saat ini. Tetap periksa pesanan dan stok secara berkala.</div>'}</div><div class="analytics-payout-note"><span>🤝 Pembayaran mitra tertunda</span><b>${money(payout)}</b><small>Untuk pesanan yang sudah terbayar dan terkirim, tetapi belum diselesaikan.</small></div></section></div>
+ <section class="admin-panel analytics-table-panel"><div class="panel-head"><div><h3>Menu terlaris</h3><p>Diurutkan menurut nilai penjualan dari pesanan terbayar</p></div><button class="panel-link" data-goto="products">Kelola menu ↗</button></div><div class="data-table-wrap"><table class="data-table analytics-table"><thead><tr><th>Menu</th><th>Box terjual</th><th>Nilai penjualan</th><th>Margin kotor</th></tr></thead><tbody>${productRows}</tbody></table></div></section>
+ <div class="analytics-layout"><section class="admin-panel analytics-table-panel"><div class="panel-head"><div><h3>Performa mitra</h3><p>Omzet dan margin produk mitra</p></div><button class="panel-link" data-goto="partners">Kelola mitra ↗</button></div><div class="data-table-wrap"><table class="data-table analytics-table"><thead><tr><th>Mitra</th><th>Box</th><th>Nilai penjualan</th><th>Margin kotor</th></tr></thead><tbody>${partnerRows}</tbody></table></div></section><section class="admin-panel analytics-table-panel"><div class="panel-head"><div><h3>Area dengan penjualan tertinggi</h3><p>Disusun menurut omzet pesanan terbayar</p></div></div><div class="data-table-wrap"><table class="data-table analytics-table"><thead><tr><th>Area</th><th>Pesanan</th><th>Omzet</th></tr></thead><tbody>${areaRows}</tbody></table></div></section></div>
+ <p class="analytics-footnote">Privasi: laporan ini hanya tersedia di dashboard administrator yang sudah terverifikasi. Berkas CSV pesanan dapat memuat nama, nomor telepon, dan alamat pelanggan—simpan dengan aman. Angka laporan hanya seakurat data yang sudah tercatat di Firestore.</p>`;
+}
+function csvCell(value){let text=String(value??'');if(/^[=+\-@\t\r]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';}
+function downloadCsv(filename,rows){if(!rows.length){showToast('Tidak ada data untuk diekspor.');return;}const csv='\uFEFF'+rows.map(row=>row.map(csvCell).join(',')).join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;a.style.display='none';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);showToast('Laporan CSV berhasil dibuat.');}
+function exportAdminReport(type){
+ const stamp=new Date().toISOString().slice(0,10);let rows=[],filename=`boxkita-${type}-${stamp}.csv`;
+ if(type==='orders'){rows=[['Kode pesanan','Tanggal masuk','Nama pelanggan','WhatsApp','Area pengiriman','Tanggal dibutuhkan','Jumlah box','Total','Status pesanan','Status pembayaran','Biaya mitra','Margin kotor','Catatan internal'],...getAnalyticsOrders().map(o=>[o.orderCode||o.id,formatDateTime(o.createdAt),o.customer?.name||o.customerName||'',o.customer?.phone||o.customerPhone||'',o.customer?.deliveryArea||o.deliveryArea||'',o.customer?.deliveryDate||o.deliveryDate||'',o.itemCount??(o.items||[]).reduce((n,i)=>n+Number(i.qty||0),0),o.total||0,statusLabel(o.status),statusLabel(o.paymentStatus||'unpaid'),o.partnerCostTotal??(o.items||[]).reduce((n,i)=>n+Number(i.partnerCostTotal??Number(i.costPrice||0)*Number(i.qty||0)),0),orderGrossMargin(o),o.adminNote||''])];}
+ else if(type==='products'){rows=[['ID menu','Nama','Kategori','Mitra','Area','Harga modal','Harga jual','Margin per box','Stok','Status'],...(window.adminProducts||[]).map(p=>[p.id,p.name,p.category,p.partnerName||partners.find(x=>x.id===p.partnerId)?.name||'',p.area,p.costPrice||0,p.salePrice||0,Number(p.salePrice||0)-Number(p.costPrice||0),p.stock||0,statusLabel(p.status)])];}
+ else if(type==='partners'){rows=[['ID mitra','Nama usaha','Penanggung jawab','WhatsApp','Area','Kapasitas','Spesialisasi','Status'],...partners.map(p=>[p.id,p.name,p.contactName,p.phone,p.area,p.capacity,p.specialty,statusLabel(p.status)])];}
+ else if(type==='settlements'){rows=[['Kode pembayaran','Mitra','Tanggal','Jumlah','Metode','Referensi','Kode pesanan'],...settlements.map(s=>[s.settlementCode||s.id,s.partnerName||partners.find(p=>p.id===s.partnerId)?.name||'',formatDateTime(s.createdAt),s.amount||0,s.method||'',s.reference||'',(s.orderCodes||s.orderIds||[]).join('; ')])];}
+ downloadCsv(filename,rows);
+}
+function bindAdminViewEvents(){if(activeView==='overview'){document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>switchAdminView(b.dataset.goto)));} if(activeView==='analytics'){const filter=byId('analyticsPeriod');if(filter)filter.addEventListener('change',()=>{analyticsPeriod=filter.value;renderAdminView();});document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>switchAdminView(b.dataset.goto)));}
  if(activeView==='orders'){['orderSearch','orderStatusFilter','paymentStatusFilter'].forEach(id=>byId(id).addEventListener(id==='orderSearch'?'input':'change',renderOrdersRows));renderOrdersRows();}
  if(activeView==='products'){byId('addProductBtn').addEventListener('click',()=>openProductForm());['productSearchAdmin','productStatusFilter'].forEach(id=>byId(id).addEventListener(id==='productSearchAdmin'?'input':'change',renderProductsRows));renderProductsRows();}
  if(activeView==='partners'){byId('addPartnerBtn').addEventListener('click',()=>openPartnerForm());['partnerSearchAdmin','partnerListFilter'].forEach(id=>byId(id).addEventListener(id==='partnerSearchAdmin'?'input':'change',renderPartnersRows));renderPartnersRows();}
@@ -589,6 +724,7 @@ byId('adminView').addEventListener('click',async e=>{
  if(button.dataset.partnerToggle){const p=partners.find(x=>x.id===button.dataset.partnerToggle);if(p)togglePartner(p);}
  if(button.dataset.applicationApprove){const a=applications.find(x=>x.id===button.dataset.applicationApprove);if(a)approveApplication(a);}
  if(button.dataset.applicationReject){const a=applications.find(x=>x.id===button.dataset.applicationReject);if(a)rejectApplication(a);}
+ if(button.dataset.reportExport)exportAdminReport(button.dataset.reportExport);
 });
 function showOrderDetails(o){const c=o.customer||{name:o.customerName,phone:o.customerPhone,address:o.address};const body=`<div class="admin-form"><div class="inline-stat">Kode pesanan: <b>${escapeHtml(o.orderCode||o.id)}</b> · ${formatDateTime(o.createdAt)}</div><div class="inline-stat">Pelanggan: <b>${escapeHtml(c.name||'—')}</b><br>WhatsApp: <b>${escapeHtml(c.phone||'—')}</b><br>Tanggal kebutuhan: <b>${escapeHtml(o.deliveryDate||'—')}</b></div><div class="inline-stat">Alamat: <b>${escapeHtml(c.address||'—')}</b><br>Catatan: <b>${escapeHtml(o.notes||'—')}</b></div><section class="admin-panel"><div class="data-table-wrap"><table class="data-table"><thead><tr><th>Menu</th><th>Qty</th><th>Harga jual</th><th>Biaya mitra</th><th>Margin</th></tr></thead><tbody>${(o.items||[]).map(i=>`<tr><td><b>${escapeHtml(i.name||i.productName||i.productId)}</b><small>${escapeHtml(i.partnerName||'')}</small></td><td>${i.qty}</td><td>${money(i.unitPrice||0)}</td><td>${money(i.partnerCostTotal??Number(i.costPrice||0)*Number(i.qty||0))}</td><td class="margin-positive">${money(i.platformMargin??((Number(i.unitPrice||0)-Number(i.costPrice||0))*Number(i.qty||0)))}</td></tr>`).join('')}</tbody></table></div></section><div class="inline-stat">Total pelanggan: <b>${money(o.total)}</b><br>Status pesanan: <b>${escapeHtml(statusLabel(o.status))}</b><br>Status pembayaran: <b>${escapeHtml(statusLabel(o.paymentStatus||'unpaid'))}</b></div><div class="admin-form-actions"><button type="button" class="btn btn-ghost" data-close="formModal">Tutup</button><button type="button" class="btn btn-primary" id="detailUpdateStatus">Ubah status</button></div></div>`;showFormModal('Detail pesanan',body,null,'RINCIAN PESANAN');byId('formModalBody').querySelector('#detailUpdateStatus').addEventListener('click',()=>{closeModal('formModal');openOrderStatusForm(o);});openModal('formModal');}
 function openOrderStatusForm(o){const statusOpts=['new','confirmed','preparing','ready','delivered','cancelled'];showFormModal('Ubah status pesanan',`<form class="admin-form" data-admin-form><div class="inline-stat">${escapeHtml(o.orderCode||o.id)} · ${money(o.total)}<br>Pelanggan: <b>${escapeHtml(o.customer?.name||o.customerName||'—')}</b></div><label>Status pesanan<select name="status">${statusOpts.map(s=>`<option value="${s}" ${o.status===s?'selected':''}>${escapeHtml(statusLabel(s))}</option>`).join('')}</select></label><label>Status pembayaran<select name="paymentStatus"><option value="unpaid" ${(o.paymentStatus||'unpaid')==='unpaid'?'selected':''}>Belum dibayar</option><option value="paid" ${o.paymentStatus==='paid'?'selected':''}>Sudah dibayar (verifikasi manual)</option><option value="refunded" ${o.paymentStatus==='refunded'?'selected':''}>Dikembalikan</option></select></label><label>Referensi pembayaran / catatan internal<input name="paymentReference" maxlength="160" value="${escapeHtml(o.paymentReference||'')}" placeholder="Contoh: transfer, referensi bank…"></label><label>Catatan status<textarea name="adminNote" rows="2" maxlength="500">${escapeHtml(o.adminNote||'')}</textarea></label><div class="admin-form-note">Pada paket gratis, transaksi dikelola langsung melalui Firestore. Harga modal dan harga jual dikunci sebagai snapshot saat pesanan dikonfirmasi. Verifikasi transfer manual sebelum menandai lunas.</div><div class="admin-form-actions"><button type="button" class="btn btn-ghost" data-close="formModal">Batal</button><button type="submit" class="btn btn-primary">Simpan status</button></div></form>`,async form=>{
