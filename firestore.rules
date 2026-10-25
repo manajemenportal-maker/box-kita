@@ -139,6 +139,11 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','phone','updatedAt']));
       allow delete: if isAdmin();
     }
+    // Private operational settings: bank account and admin-only configuration.
+    match /adminSettings/{settingId} {
+      allow read, create, update, delete: if isAdmin();
+    }
+    // Public-safe contact data only. Do not store private bank details in this collection.
     match /publicSettings/{settingId} {
       allow read: if true;
       allow create, update, delete: if isAdmin();

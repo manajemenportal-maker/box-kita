@@ -1,33 +1,41 @@
-# BoxKita — Layanan Nasi Box
+# BoxKita — Layanan Nasi Box (V17)
 
-Website PWA BoxKita untuk layanan nasi box dan aneka kue di Jabodetabek. Website publik, dashboard pelanggan, dashboard mitra, dan dashboard pengelola menggunakan Firebase Authentication dan Cloud Firestore.
+Website PWA BoxKita untuk layanan nasi box dan aneka kue di Jabodetabek. Paket ini mencakup toko publik serta dashboard pelanggan, mitra, dan pengelola dengan Firebase Authentication dan Cloud Firestore.
 
-## Isi paket
+## File utama
 - `index.html`, `styles.css`, `app.js`: website dan dashboard responsif.
 - `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png`: instalasi PWA dan cache aset.
-- `firestore.rules`: aturan akses database.
+- `firestore.rules`: aturan akses, termasuk collection privat `adminSettings`.
 - `firestore.indexes.json`: indeks Firestore.
+- `AREA_PENGELOLA_V17.md`: panduan fungsi Area Pengelola.
 
-## Publikasikan melalui GitHub Pages
-1. Unggah semua file paket ini ke root repository GitHub Pages pada branch `main`.
-2. Buka **Settings → Pages**, pilih **Deploy from a branch → main → /(root)**.
-3. Setelah publikasi selesai, buka website dan refresh. Jika aplikasi sudah terpasang, tutup dan buka kembali agar pembaruan termuat.
+## Pasang ke GitHub Pages
+1. Unggah seluruh isi folder paket ini ke root repo GitHub Pages pada branch `main`.
+2. Settings → Pages → Deploy from a branch → `main` → `/(root)`.
+3. Setelah publish, lakukan hard refresh. Tutup dan buka ulang PWA agar cache versi baru termuat.
 
-## Persiapan Firebase
-1. Pada project `box-kita`, aktifkan Authentication **Email/Password** dan buat database Cloud Firestore.
-2. Tambahkan domain GitHub Pages, misalnya `USERNAME.github.io`, pada Authentication → Settings → Authorized domains.
-3. Publikasikan isi `firestore.rules` melalui Firestore Database → Rules.
-4. Untuk admin pertama, buka situs dengan parameter `?portal=admin`, pilih pendaftaran akun pengelola, lalu salin UID yang ditampilkan.
-5. Di Firestore, buat dokumen `users/{UID}` dengan `role` (string) bernilai `admin` dan `active` (boolean) bernilai `true`. Login melalui `?portal=admin`.
-6. Setelah masuk, tambahkan data mitra, katalog menu, harga modal, harga jual, dan stok sebenarnya melalui dashboard pengelola.
+## Agar menu Area Pengelola dapat dipakai
+1. Pada project Firebase `box-kita`, buka Firestore Database → Rules.
+2. Ganti rules dengan isi file `firestore.rules` dari paket ini dan klik **Publish**. Rules V17 menambahkan akses admin-only ke `adminSettings/{document}`.
+3. Login dengan akun yang memiliki dokumen `users/{UID}` dengan `role` string `admin` dan `active` boolean `true`.
+4. Di sidebar dashboard, klik **Area Pengelola**.
+5. Isi nama layanan, WhatsApp dengan format kode negara `62`, email layanan bila ada, serta rincian rekening jika siap digunakan. Klik **Simpan Pengaturan**.
 
-## Akses akun
-- **Pelanggan:** daftar atau login melalui menu Akun untuk melihat pesanan sendiri.
-- **Mitra:** daftar melalui formulir mitra; dashboard baru aktif setelah pengajuan disetujui dan akun ditautkan.
-- **Pengelola:** login melalui `?portal=admin`; dashboard hanya dibuka bila role admin dan status aktif berhasil diverifikasi.
+## Data settings dan privasi
+- Kontak aman untuk publik: `publicSettings/contact` (nama layanan, WhatsApp, email layanan).
+- Rincian pembayaran privat: `adminSettings/operations` (nama bank, nama pemilik rekening, nomor rekening, instruksi pembayaran). Hanya admin aktif dapat membaca/menulis.
+- Jangan menyimpan detail rekening, password, private key, atau service-account key di repository publik.
 
-## Operasional
-- Menu katalog, pendaftaran, dan pesanan dibaca/ditulis melalui Firestore. Jika koneksi atau akses database gagal, aplikasi menampilkan pesan layanan dan tidak membuat pesanan sampai layanan kembali tersedia.
-- Isi `WA_ADMIN` dan `PAYMENT_INFO` di `app.js` dengan nomor WhatsApp serta rekening resmi BoxKita sebelum mengaktifkan konfirmasi WhatsApp dan menampilkan detail pembayaran.
-- Tidak menggunakan Cloud Functions. Pengelolaan pesanan dan pembayaran mitra dilakukan langsung melalui aplikasi dan Firestore Rules; verifikasi pembayaran tetap manual.
-- Pantau kuota gratis Firebase. Jangan menyimpan password, private key, atau service-account key dalam repository publik.
+## Menu dashboard pengelola
+- **Ringkasan:** jumlah dan nilai pesanan, omzet terbayar, margin kotor, pekerjaan prioritas.
+- **Pesanan:** konfirmasi ketersediaan, tanggal, status pesanan dan pembayaran pelanggan.
+- **Menu & Harga:** stok, pemasok, harga modal, harga jual, dan foto melalui URL HTTPS.
+- **Mitra & Pendaftar:** meninjau pendaftaran, mengaktifkan/menonaktifkan mitra, dan mengelola data usaha.
+- **Pembayaran Mitra:** mencatat pembayaran pemasok untuk pesanan yang memenuhi syarat.
+- **Analitik & Laporan:** tren omzet, menu terlaris, performa mitra, dan ekspor CSV.
+- **Area Pengelola:** pengaturan kontak, referensi pembayaran privat, status akun, daftar wilayah, dan pintasan ke menu operasional.
+
+## Keamanan dan paket gratis
+- Area Pengelola hanya tersedia setelah role `admin` dan status aktif diverifikasi oleh Firebase.
+- Tidak menggunakan Cloud Functions. Pembayaran tetap manual dan harus diverifikasi sebelum status dinyatakan lunas.
+- Pantau kuota gratis Firebase. Firebase Web config bersifat publik pada aplikasi client; keamanan utama berada di Firestore Rules.

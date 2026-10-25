@@ -15,9 +15,9 @@ const firebaseConfig = {
   measurementId: 'G-YLYESZ5N20'
 };
 // Ganti nomor ini dengan WhatsApp pengelola: kode negara, tanpa tanda +, spasi, atau angka 0 awal.
-const WA_ADMIN = ''; // Isi dengan nomor resmi pengelola bila ingin mengaktifkan konfirmasi WhatsApp.
+let WA_ADMIN = ''; // Diisi dari publicSettings/contact setelah admin menyimpan kontak resmi.
 // Detail rekening bersifat opsional. Jika belum diisi, pengelola mengirimkan detail pembayaran setelah pesanan dikonfirmasi.
-const PAYMENT_INFO = { bankName: '', accountName: '', accountNo: '' };
+const PAYMENT_INFO = { bankName: '', accountName: '', accountNo: '' }; // Sengaja tidak diisi otomatis di halaman publik; detail rekening disampaikan pengelola setelah konfirmasi.
 let app = null, auth = null, db = null;
 {
   try {
@@ -62,6 +62,7 @@ function areaSelectOptions(selected='Jakarta') {
 
 function localStamp(){return new Date().toISOString();}
 let products = [], partners = [], orders = [], applications = [], settlements = [], cart = {}, selectedCategory = 'all', currentAdmin = null, currentSessionUser = null, currentProfile = null, currentRole = null, activeView = 'overview', roleDashboardView = 'overview', lastOrderMessage = '', cachedModalSubmit = null, authRouteSequence = 0, analyticsPeriod = '30';
+let adminSettingsPrivateCache = {}, adminSettingsPublicCache = {}, supportEmail = '';
 const byId = id => document.getElementById(id);
 
 // Navigasi situs dibuat satu sumber: link desktop dan mobile menunjuk ke bagian halaman yang sama.
@@ -152,6 +153,43 @@ const formatDate = value => { if (!value) return '—'; const d = value?.toDate 
 const formatDateTime = value => { if (!value) return '—'; const d = value?.toDate ? value.toDate() : (value instanceof Date ? value : new Date(value)); return isNaN(d.getTime()) ? '—' : d.toLocaleString('id-ID',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}); };
 const getVal = (form, name) => String(new FormData(form).get(name) || '').trim();
 const isConfiguredWA = () => /^62\d{8,15}$/.test(WA_ADMIN) && !WA_ADMIN.includes('X');
+function normalizeWhatsApp(value) {
+  let digits = String(value || '').replace(/\D/g, '');
+  if (digits.startsWith('0')) digits = `62${digits.slice(1)}`;
+  else if (digits.startsWith('8')) digits = `62${digits}`;
+  return digits;
+}
+async function loadPublicContactSettings() {
+  if (!db || !getDoc || !doc) return;
+  try {
+    const snap = await getDoc(doc(db, 'publicSettings', 'contact'));
+    if (snap.exists()) {
+      const data = snap.data() || {};
+      WA_ADMIN = normalizeWhatsApp(data.whatsapp || '');
+      supportEmail = String(data.supportEmail || '');
+      syncPublicContactUi();
+    }
+  } catch (error) {
+    // Public contact settings are optional; the storefront remains available when none is configured.
+    console.warn('Kontak layanan belum diatur.', error);
+  }
+}
+function syncPublicContactUi() {
+  if (byId('resultWhatsAppBtn')) byId('resultWhatsAppBtn').hidden = !isConfiguredWA();
+  const emailLink = byId('footerSupportEmail');
+  if (emailLink) {
+    const safeEmail = String(supportEmail || '').trim();
+    if (safeEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeEmail)) {
+      emailLink.href = `mailto:${safeEmail}`;
+      emailLink.textContent = safeEmail;
+      emailLink.classList.remove('hidden');
+    } else {
+      emailLink.removeAttribute('href');
+      emailLink.textContent = 'Email layanan';
+      emailLink.classList.add('hidden');
+    }
+  }
+}
 const showToast = message => { const toast = byId('toast'); toast.textContent = message; toast.classList.add('show'); clearTimeout(window.__toastTimer); window.__toastTimer = setTimeout(() => toast.classList.remove('show'), 3100); };
 const setBusy = (busy, text='Memproses…') => { byId('busyText').textContent = text; byId('globalBusy').classList.toggle('hidden', !busy); };
 const openModal = id => byId(id).classList.add('show');
@@ -442,7 +480,7 @@ byId('roleLogoutBtn').addEventListener('click',async()=>{if(auth)await signOut(a
 byId('roleBrandHome').addEventListener('click',e=>{e.preventDefault();hideRoleDashboard();window.location.hash='home';});
 byId('roleDashboardNav').addEventListener('click',e=>{const b=e.target.closest('[data-role-view]');if(!b)return;roleDashboardView=b.dataset.roleView;renderRoleDashboard();});
 byId('adminMobileMenuBtn').addEventListener('click',()=>document.querySelector('.admin-sidebar').classList.toggle('open'));
-document.querySelectorAll('.admin-nav[data-view]').forEach(button=>button.addEventListener('click',()=>{activeView=button.dataset.view;document.querySelectorAll('.admin-nav[data-view]').forEach(b=>b.classList.toggle('active',b===button));document.querySelector('.admin-sidebar').classList.remove('open');renderAdminView();}));
+document.querySelectorAll('.admin-nav[data-view]').forEach(button=>button.addEventListener('click',()=>{document.querySelector('.admin-sidebar').classList.remove('open');switchAdminView(button.dataset.view);}));
 byId('refreshAdminBtn').addEventListener('click',refreshAdminData);
 function showAdmin(){
  if(!(currentAdmin&&currentProfile?.role==='admin'&&currentProfile?.active===true)){hideAdmin();showToast('Dashboard pengelola hanya tersedia untuk akun admin yang aktif.');return;}
@@ -541,7 +579,62 @@ async function refreshAdminData(){if(!currentAdmin)return;setBusy(true,'Memuat d
  byId('pendingOrderBadge').textContent=orders.filter(o=>['new','confirmed'].includes(o.status)).length;byId('pendingPartnerBadge').textContent=applications.filter(a=>a.status==='pending').length;renderAdminView();
  }catch(error){console.error(error);byId('adminView').innerHTML=`<div class="admin-page-title"><div><h1>Dashboard belum termuat</h1><p>${escapeHtml('Data belum dapat dimuat. Periksa koneksi dan hak akses akun, lalu coba kembali.')}</p></div></div>`;}finally{setBusy(false);}}
 function adminPageHeader(title,subtitle,actionLabel='',actionId=''){return `<div class="admin-page-title"><div><h1>${escapeHtml(title)}</h1><p>${escapeHtml(subtitle)}</p></div>${actionLabel?`<button class="btn btn-primary" id="${actionId}">＋ ${escapeHtml(actionLabel)}</button>`:''}</div>`;}
-function renderAdminView(){const host=byId('adminView');byId('adminPageName').textContent=({overview:'Ringkasan',orders:'Pesanan',products:'Menu & Harga',partners:'Mitra & Pendaftar',settlements:'Pembayaran Mitra',analytics:'Analitik & Laporan'}[activeView]||'Dashboard'); if(activeView==='overview')host.innerHTML=renderOverview();if(activeView==='orders')host.innerHTML=renderOrders();if(activeView==='products')host.innerHTML=renderProductsAdmin();if(activeView==='partners')host.innerHTML=renderPartnersAdmin();if(activeView==='settlements')host.innerHTML=renderSettlementsAdmin();if(activeView==='analytics')host.innerHTML=renderAnalyticsAdmin();bindAdminViewEvents();}
+function renderAdminView(){const host=byId('adminView');byId('adminPageName').textContent=({overview:'Ringkasan',orders:'Pesanan',products:'Menu & Harga',partners:'Mitra & Pendaftar',settlements:'Pembayaran Mitra',analytics:'Analitik & Laporan',settings:'Area Pengelola'}[activeView]||'Dashboard'); if(activeView==='overview')host.innerHTML=renderOverview();if(activeView==='orders')host.innerHTML=renderOrders();if(activeView==='products')host.innerHTML=renderProductsAdmin();if(activeView==='partners')host.innerHTML=renderPartnersAdmin();if(activeView==='settlements')host.innerHTML=renderSettlementsAdmin();if(activeView==='analytics')host.innerHTML=renderAnalyticsAdmin();if(activeView==='settings')host.innerHTML=renderAdminSettings();bindAdminViewEvents();}
+function renderAdminSettings() {
+ const priv=adminSettingsPrivateCache||{}, pub=adminSettingsPublicCache||{};
+ const activeAreaText=SERVICE_AREAS.map(area=>`<span class="settings-area-chip">${escapeHtml(area)}</span>`).join('');
+ return `${adminPageHeader('Area Pengelola','Pusat pengaturan operasional BoxKita: kontak, pembayaran, akses akun, dan wilayah layanan.')}
+ <div class="settings-notice"><span>✓</span><div><b>Area ini sudah terbuka untuk akun administrator aktif.</b><small>Gunakan menu di bawah untuk mengatur kebutuhan operasional. Data rekening disimpan terpisah dan tidak ditampilkan sebagai informasi publik.</small></div></div>
+ <form id="adminSettingsForm" class="admin-settings-form">
+  <section class="admin-panel settings-panel"><div class="panel-head"><div><h3>Kontak pelanggan</h3><p>Kontak yang aman ditampilkan pada layanan publik BoxKita.</p></div><span class="settings-section-icon">☎</span></div><div class="settings-form-body">
+   <label>WhatsApp pengelola<input name="whatsapp" inputmode="tel" maxlength="25" value="${escapeHtml(pub.whatsapp||'')}" placeholder="Contoh: 628511033789"><small>Masukkan nomor dengan kode negara 62. Nomor ini dipakai untuk tombol konfirmasi WhatsApp.</small></label>
+   <label>Email layanan (opsional)<input name="supportEmail" type="email" maxlength="180" value="${escapeHtml(pub.supportEmail||'')}" placeholder="layanan@domain.com"></label>
+  </div></section>
+  <section class="admin-panel settings-panel"><div class="panel-head"><div><h3>Rekening dan arahan pembayaran</h3><p>Informasi privat untuk pegangan pengelola saat mengonfirmasi pesanan.</p></div><span class="settings-section-icon">▤</span></div><div class="settings-form-body">
+   <div class="settings-private-note">🔐 Data di bagian ini hanya dapat dibaca dan ditulis oleh akun admin aktif. Situs publik tetap meminta pelanggan menunggu konfirmasi resmi sebelum transfer.</div>
+   <label>Nama bank / metode pembayaran<input name="bankName" maxlength="100" value="${escapeHtml(priv.bankName||'')}" placeholder="Contoh: BCA / Mandiri / BRI"></label>
+   <label>Nama pemilik rekening<input name="accountName" maxlength="120" value="${escapeHtml(priv.accountName||'')}" placeholder="Nama sesuai rekening"></label>
+   <label>Nomor rekening / tujuan pembayaran<input name="accountNo" maxlength="100" value="${escapeHtml(priv.accountNo||'')}" placeholder="Nomor rekening atau akun pembayaran"></label>
+   <label>Instruksi konfirmasi pembayaran<textarea name="paymentInstructions" rows="3" maxlength="500" placeholder="Contoh: transfer setelah total akhir dikonfirmasi, kirim bukti transfer ke WhatsApp resmi.">${escapeHtml(priv.paymentInstructions||'')}</textarea></label>
+  </div></section>
+  <section class="admin-panel settings-panel"><div class="panel-head"><div><h3>Akun dan akses administrator</h3><p>Informasi sesi yang sedang digunakan untuk mengelola BoxKita.</p></div><span class="settings-section-icon">✓</span></div><div class="settings-form-body"><div class="settings-account-grid"><div><small>Email login</small><b>${escapeHtml(currentAdmin?.email||'—')}</b></div><div><small>Status</small><b class="settings-status-active">Aktif · Admin</b></div><div class="settings-account-uid"><small>UID akun</small><code id="adminSettingsUid">${escapeHtml(currentAdmin?.uid||'—')}</code><button type="button" class="btn btn-ghost btn-sm" id="copySettingsUid">Salin UID</button></div></div><p class="settings-help">Hak administrator tetap dikendalikan oleh dokumen <code>users/{UID}</code> di Firestore. Jangan mengubah role agar pengunjung umum dapat menjadi admin.</p></div></section>
+  <section class="admin-panel settings-panel"><div class="panel-head"><div><h3>Wilayah layanan</h3><p>Wilayah yang tersedia pada pemesanan dan pendaftaran mitra.</p></div><span class="settings-section-icon">⌖</span></div><div class="settings-form-body"><div class="settings-area-list">${activeAreaText}</div><small class="settings-help">Daftar wilayah saat ini ditetapkan pada aplikasi. Perubahan daftar wilayah membutuhkan pembaruan pilihan formulir dan Firestore Rules.</small></div></section>
+  <div class="settings-submit-row"><span>Perubahan disimpan ke Firebase. Kontak layanan bersifat publik; detail rekening tetap privat.</span><button class="btn btn-primary" type="submit">Simpan Pengaturan ↗</button></div>
+ </form>
+ <section class="admin-panel settings-quick-links"><div class="panel-head"><div><h3>Menu operasional</h3><p>Setiap area kerja dikelompokkan sesuai fungsinya.</p></div></div><div class="settings-shortcuts"><button type="button" data-settings-goto="overview"><span>▦</span><b>Ringkasan</b><small>Omzet, pesanan, dan pekerjaan prioritas</small></button><button type="button" data-settings-goto="orders"><span>🧾</span><b>Pesanan</b><small>Konfirmasi dan progres pesanan</small></button><button type="button" data-settings-goto="products"><span>🍱</span><b>Menu & Harga</b><small>Menu, stok, harga modal dan jual</small></button><button type="button" data-settings-goto="partners"><span>♧</span><b>Mitra & Pendaftar</b><small>Persetujuan dan data usaha mitra</small></button><button type="button" data-settings-goto="settlements"><span>↗</span><b>Pembayaran Mitra</b><small>Catatan pembayaran pemasok</small></button><button type="button" data-settings-goto="analytics"><span>📊</span><b>Analitik & Laporan</b><small>Tren omzet, margin, dan ekspor</small></button></div></section>`;
+}
+async function loadAdminSettings() {
+ if (!db || !currentAdmin || currentProfile?.role!=='admin' || currentProfile?.active!==true) throw new Error('Sesi admin tidak aktif. Login kembali untuk membuka pengaturan.');
+ const [privateSnap, publicSnap] = await Promise.all([
+   getDoc(doc(db,'adminSettings','operations')),
+   getDoc(doc(db,'publicSettings','contact'))
+ ]);
+ adminSettingsPrivateCache = privateSnap.exists() ? privateSnap.data() : {};
+ adminSettingsPublicCache = publicSnap.exists() ? publicSnap.data() : {};
+ return {private:adminSettingsPrivateCache, public:adminSettingsPublicCache};
+}
+async function saveAdminSettings(form) {
+ if (!(currentAdmin && currentProfile?.role==='admin' && currentProfile?.active===true)) throw new Error('Sesi admin tidak aktif. Login kembali.');
+ const whatsapp=normalizeWhatsApp(getVal(form,'whatsapp')), supportEmailValue=getVal(form,'supportEmail');
+ const bankName=getVal(form,'bankName'), accountName=getVal(form,'accountName'), accountNo=getVal(form,'accountNo'), paymentInstructions=getVal(form,'paymentInstructions');
+ if (whatsapp && !/^62\d{8,15}$/.test(whatsapp)) throw new Error('Nomor WhatsApp belum valid. Gunakan format kode negara, misalnya 628123456789.');
+ if (supportEmailValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(supportEmailValue)) throw new Error('Format email layanan belum valid.');
+ if ([bankName,accountName,accountNo].some(Boolean) && !(bankName&&accountName&&accountNo)) throw new Error('Lengkapi nama bank, nama pemilik rekening, dan nomor rekening, atau kosongkan semuanya.');
+ const publicData={whatsapp,supportEmail:supportEmailValue,updatedAt:serverTimestamp()};
+ const privateData={bankName,accountName,accountNo,paymentInstructions,updatedAt:serverTimestamp(),updatedBy:currentAdmin.uid};
+ setBusy(true,'Menyimpan pengaturan layanan…');
+ try {
+   const batch=writeBatch(db);
+   batch.set(doc(db,'publicSettings','contact'),publicData,{merge:true});
+   batch.set(doc(db,'adminSettings','operations'),privateData,{merge:true});
+   await batch.commit();
+   adminSettingsPublicCache={...publicData};adminSettingsPrivateCache={...privateData};
+   WA_ADMIN=whatsapp; supportEmail=supportEmailValue; syncPublicContactUi();
+   showToast('Pengaturan pengelola berhasil disimpan.');
+   renderAdminView();
+ } finally { setBusy(false); }
+}
+
 function sum(rows,key){return rows.reduce((s,r)=>s+Number(r[key]||0),0)}
 function renderOverview(){
  const today=new Date();today.setHours(0,0,0,0);const orderToday=orders.filter(o=>{const d=o.createdAt?.toDate?o.createdAt.toDate():new Date(o.createdAt||0);return d>=today;});const activeOrders=orders.filter(o=>!['delivered','cancelled'].includes(o.status));const confirmedRevenue=orders.filter(o=>o.paymentStatus==='paid'&&o.status!=='cancelled').reduce((s,o)=>s+Number(o.total||0),0);const expectedMargin=orders.filter(o=>o.paymentStatus==='paid'&&o.status!=='cancelled').reduce((s,o)=>s+Number(o.platformMargin||0),0);const duePayout=orders.filter(o=>o.paymentStatus==='paid'&&o.status==='delivered').reduce((s,o)=>s+(o.items||[]).filter(i=>i.settlementStatus!=='paid').reduce((t,i)=>t+Number(i.partnerCostTotal??Number(i.costPrice||0)*Number(i.qty||0)),0),0);
@@ -627,13 +720,25 @@ function exportAdminReport(type){
  else if(type==='settlements'){rows=[['Kode pembayaran','Mitra','Tanggal','Jumlah','Metode','Referensi','Kode pesanan'],...settlements.map(s=>[s.settlementCode||s.id,s.partnerName||partners.find(p=>p.id===s.partnerId)?.name||'',formatDateTime(s.createdAt),s.amount||0,s.method||'',s.reference||'',(s.orderCodes||s.orderIds||[]).join('; ')])];}
  downloadCsv(filename,rows);
 }
-function bindAdminViewEvents(){if(activeView==='overview'){document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>switchAdminView(b.dataset.goto)));} if(activeView==='analytics'){const filter=byId('analyticsPeriod');if(filter)filter.addEventListener('change',()=>{analyticsPeriod=filter.value;renderAdminView();});document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>switchAdminView(b.dataset.goto)));}
+function bindAdminViewEvents(){if(activeView==='overview'){document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>switchAdminView(b.dataset.goto)));} if(activeView==='analytics'){const filter=byId('analyticsPeriod');if(filter)filter.addEventListener('change',()=>{analyticsPeriod=filter.value;renderAdminView();});document.querySelectorAll('[data-goto]').forEach(b=>b.addEventListener('click',()=>switchAdminView(b.dataset.goto)));} if(activeView==='settings'){const form=byId('adminSettingsForm');if(form)form.addEventListener('submit',async e=>{e.preventDefault();try{await saveAdminSettings(form);}catch(error){console.error(error);showToast(error?.message||'Pengaturan belum berhasil disimpan.');}});const copy=byId('copySettingsUid');if(copy)copy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(currentAdmin?.uid||'');showToast('UID admin disalin.');}catch(_){showToast(`UID admin: ${currentAdmin?.uid||'—'}`);}});document.querySelectorAll('[data-settings-goto]').forEach(b=>b.addEventListener('click',()=>switchAdminView(b.dataset.settingsGoto)));}
  if(activeView==='orders'){['orderSearch','orderStatusFilter','paymentStatusFilter'].forEach(id=>byId(id).addEventListener(id==='orderSearch'?'input':'change',renderOrdersRows));renderOrdersRows();}
  if(activeView==='products'){byId('addProductBtn').addEventListener('click',()=>openProductForm());['productSearchAdmin','productStatusFilter'].forEach(id=>byId(id).addEventListener(id==='productSearchAdmin'?'input':'change',renderProductsRows));renderProductsRows();}
  if(activeView==='partners'){byId('addPartnerBtn').addEventListener('click',()=>openPartnerForm());['partnerSearchAdmin','partnerListFilter'].forEach(id=>byId(id).addEventListener(id==='partnerSearchAdmin'?'input':'change',renderPartnersRows));renderPartnersRows();}
  if(activeView==='settlements'){document.querySelectorAll('[data-settle-partner]').forEach(b=>b.addEventListener('click',()=>startSettlement(b.dataset.settlePartner)));}
 }
-function switchAdminView(view){activeView=view;document.querySelectorAll('.admin-nav[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));renderAdminView();}
+function switchAdminView(view){
+ activeView=view;document.querySelectorAll('.admin-nav[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===view));renderAdminView();
+ if(view==='settings'){
+  loadAdminSettings().then(()=>{if(activeView==='settings')renderAdminView();}).catch(error=>{
+   console.error('Pengaturan pengelola belum termuat:',error);
+   if(activeView==='settings'){
+    byId('adminView').innerHTML=`<div class="admin-page-title"><div><h1>Area Pengelola</h1><p>Bagian ini mengatur kontak layanan dan referensi pembayaran BoxKita.</p></div></div><div class="settings-error-note"><b>Pengaturan belum dapat dibuka.</b><br>Publikasikan file <code>firestore.rules</code> dari paket V17 melalui Firebase Console → Firestore Database → Rules, lalu klik Publish. Setelah itu coba lagi. Bagian ini sengaja tidak menyimpan sebagian data jika aturan database belum siap.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-primary" id="retryAdminSettings" type="button">Coba Lagi</button><button class="btn btn-ghost" id="settingsBackOverview" type="button">Kembali ke Ringkasan</button></div>`;
+    byId('retryAdminSettings').addEventListener('click',()=>switchAdminView('settings'));
+    byId('settingsBackOverview').addEventListener('click',()=>switchAdminView('overview'));
+   }
+  });
+ }
+}
 
 function showFormModal(title,content,submitHandler,eyebrow='DATA MASTER'){byId('formModalTitle').textContent=title;byId('formModalEyebrow').textContent=eyebrow;byId('formModalBody').innerHTML=content;cachedModalSubmit=submitHandler;}
 byId('formModalBody').addEventListener('submit',async e=>{const form=e.target.closest('form[data-admin-form]');if(!form)return;e.preventDefault();if(!cachedModalSubmit)return;try{await cachedModalSubmit(form);}catch(error){console.error(error);showToast(error?.message||'Data belum berhasil disimpan.');}});
@@ -730,6 +835,7 @@ async function startSettlement(partnerId){const eligible=orders.filter(o=>o.paym
 
 // Initial customer experience and PWA cache registration.
 const deliveryDateInput=byId('checkoutForm').elements.deliveryDate; if(deliveryDateInput){const today=new Date();deliveryDateInput.min=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;}
+await loadPublicContactSettings();
 await loadCatalog();
 setNavigationRole(currentRole);
 // Admin login is intentionally not shown to public users. Owner opens /?portal=admin when needed.
