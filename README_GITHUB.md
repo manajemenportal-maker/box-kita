@@ -1,6 +1,10 @@
-# BoxKita V21 — GitHub Pages + Firebase Spark
+# BoxKita V22 — GitHub Pages + Firebase Spark
 
-## Yang berubah pada V21
+## Yang berubah pada V22
+- Footer mencantumkan nama badan usaha: **Dikelola oleh PT YANTICHA SURYA KINARYA**.
+- Cache PWA dan referensi aset dinaikkan ke V22 agar footer terbaru dimuat setelah deploy.
+
+## Riwayat fitur V21
 - Form iklan mitra menampilkan 23 pilihan wilayah secara langsung dalam kelompok: Jakarta, Tangerang & Tangerang Selatan, Depok, Bekasi, dan Bogor.
 - Mitra dapat memilih banyak area, menekan **Pilih semua wilayah**, atau **Hapus semua pilihan**.
 - Pilihan tampil sebagai chip dan jumlah area terpilih selalu diperbarui.
@@ -11,7 +15,7 @@
 
 ## Upload website ke GitHub Pages
 1. Ekstrak ZIP ini.
-2. Upload **semua isi folder `BoxKita_GitHub_Pages_v21`** ke root repository GitHub Pages dan timpa file lama.
+2. Upload **semua isi folder `BoxKita_GitHub_Pages_v22`** ke root repository GitHub Pages dan timpa file lama.
 3. Commit changes. Pastikan GitHub Pages menggunakan branch `main` dan folder `/(root)`.
 4. Publish Rules: buka Firebase Console → project `box-kita` → Firestore Database → Rules, salin seluruh isi `firestore.rules` dari paket ini, lalu klik **Publish**.
 5. Buka website lagi. Di browser desktop lakukan hard refresh. Di HP, tutup PWA sepenuhnya, buka URL situs melalui Chrome, refresh, lalu buka kembali PWA.

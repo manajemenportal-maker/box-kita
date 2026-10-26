@@ -371,3 +371,8 @@ section[id] { scroll-margin-top: calc(var(--site-header-height) + env(safe-area-
 .partner-data-warning p,.partner-setup-alert p{margin:0;color:inherit}
 .partner-data-warning small{color:#755d35;overflow-wrap:anywhere}
 .partner-data-warning .btn,.partner-setup-alert .btn{margin-top:4px}
+
+
+/* V22: legal operator note in the site footer */
+.footer-company-note{font-weight:800;color:#e9c9b7;letter-spacing:.18px;text-align:center}
+@media(max-width:560px){.footer-company-note{flex-basis:100%;order:3;text-align:left;padding-top:2px}.footer-bottom{row-gap:8px}}
