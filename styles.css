@@ -376,3 +376,136 @@ section[id] { scroll-margin-top: calc(var(--site-header-height) + env(safe-area-
 /* V22: legal operator note in the site footer */
 .footer-company-note{font-weight:800;color:#e9c9b7;letter-spacing:.18px;text-align:center}
 @media(max-width:560px){.footer-company-note{flex-basis:100%;order:3;text-align:left;padding-top:2px}.footer-bottom{row-gap:8px}}
+
+
+/* V23 — menu utama lebih sederhana dan tipografi ramah pembaca lanjut usia */
+html { scroll-padding-top: 100px; }
+body { font-size: 16px; }
+.topbar .brand small { font-size: 10px !important; letter-spacing: .7px; }
+.main-nav { gap: clamp(12px, 1.1vw, 20px); margin-left: 8px; }
+.main-nav .site-nav-link { font-size: 15px !important; min-height: 48px; }
+.nav-actions .btn { font-size: 14px !important; min-height: 44px; }
+.nav-actions #cartBadge { font-size: 12px !important; }
+.mobile-menu { width: 46px; height: 46px; font-size: 22px !important; }
+.mobile-nav .site-nav-link { font-size: 16px !important; min-height: 52px; padding: 13px 12px; line-height: 1.45; }
+.mobile-nav .site-nav-link > span { font-size: 19px !important; }
+.mobile-nav .mobile-account-entry, .mobile-nav .mobile-install-entry, .mobile-nav .mobile-admin-entry { font-size: 14px !important; min-height: 48px; line-height: 1.4; }
+#publicApp .eyebrow, #publicApp .section-kicker, #publicApp .modal-eyebrow,
+#program-jumat .barokah-eyebrow, #program-box-kita .snackbox-eyebrow { font-size: 12px !important; letter-spacing: .7px; line-height: 1.45; }
+#publicApp .hero-copy > p { font-size: 17px !important; line-height: 1.8; }
+#publicApp .hero-points { font-size: 14px !important; line-height: 1.6; gap: 12px 18px; }
+#publicApp .hero-metrics span { font-size: 13px !important; line-height: 1.5; }
+#publicApp .float-card b { font-size: 14px !important; }
+#publicApp .float-card small { font-size: 12px !important; line-height: 1.5; }
+#publicApp .section-heading p, #publicApp .barokah-copy p, #publicApp .snackbox-copy p,
+#publicApp .join-copy > p, #publicApp .step-card p, #publicApp .trust-card p,
+#publicApp .partner-card p, #publicApp .notice-strip div span { font-size: 15px !important; line-height: 1.75; }
+#publicApp .section-heading h2 { line-height: 1.25; }
+#publicApp .location-pill { font-size: 13px !important; white-space: normal; flex-wrap: wrap; gap: 6px; line-height: 1.5; }
+#publicApp .area-pill { font-size: 12px !important; padding: 5px 8px; }
+#publicApp .searchbox input { font-size: 16px !important; min-height: 48px; }
+#publicApp .catalog-toolbar select { font-size: 15px !important; min-height: 48px; padding: 8px 12px; }
+#publicApp .category-chip { font-size: 14px !important; min-height: 42px; padding: 10px 15px; line-height: 1.35; }
+#publicApp .product-content h3 { font-size: 17px !important; line-height: 1.4; }
+#publicApp .product-description { font-size: 14px !important; line-height: 1.65; min-height: 0; }
+#publicApp .seller-line { font-size: 13px !important; line-height: 1.45; }
+#publicApp .product-price { font-size: 19px !important; }
+#publicApp .product-tag, #publicApp .boxkita-mini-badge, #publicApp .barokah-mini-badge { font-size: 12px !important; letter-spacing: 0; }
+#publicApp .add-cart { min-width: 42px; min-height: 42px; font-size: 25px !important; }
+#program-jumat .barokah-copy h2, #program-box-kita .snackbox-copy h2 { font-size: clamp(23px, 2.5vw, 30px); line-height: 1.3; }
+#program-jumat .btn, #program-box-kita .btn, #publicApp .btn { font-size: 15px !important; line-height: 1.45; }
+#publicApp .step-card h3 { font-size: 17px !important; line-height: 1.4; }
+#publicApp .step-number { font-size: 13px !important; }
+#publicApp .join-benefits div { font-size: 14px !important; line-height: 1.6; }
+#publicApp .join-form label, #publicApp .checkout-form label { font-size: 15px !important; line-height: 1.5; }
+#publicApp .join-form input, #publicApp .join-form select, #publicApp .join-form textarea,
+#publicApp .checkout-form input, #publicApp .checkout-form select, #publicApp .checkout-form textarea { font-size: 16px !important; min-height: 46px; line-height: 1.5; }
+#publicApp .join-form > small, #publicApp .form-heading p { font-size: 13px !important; line-height: 1.65; }
+.footer-main > div:first-child > p, .footer-links a, .footer-contact span { font-size: 14px !important; line-height: 1.7; }
+.footer-links b, .footer-contact b { font-size: 16px !important; }
+.footer-contact .btn { font-size: 14px !important; }
+.footer-bottom { font-size: 13px !important; line-height: 1.6; }
+.footer-company-note { font-size: 14px !important; line-height: 1.6; }
+.modal p, .modal label, .modal .form-footnote, .modal .account-form-heading span { font-size: 14px !important; line-height: 1.65; }
+.modal input, .modal select, .modal textarea { font-size: 16px !important; min-height: 46px; }
+.modal .btn, .modal button { font-size: 14px !important; min-height: 44px; }
+/* Dashboard text and controls: never rely on tiny 8–11px interface labels. */
+#adminApp .admin-nav { font-size: 14px !important; line-height: 1.5; }
+#adminApp .admin-crumb, #adminApp .admin-location, #adminApp .kpi-label,
+#adminApp .panel-link, #adminApp .admin-select, #adminApp .table-action,
+#adminApp .toolbar-count, #adminApp .inline-stat, #adminApp .admin-form-note,
+#adminApp .settlement-meta, #adminApp .kpi-note, #adminApp .empty-panel,
+#adminApp .admin-form label, #adminApp .admin-page-title p { font-size: 13px !important; line-height: 1.6; }
+#adminApp .data-table th, #adminApp .data-table td { font-size: 13px !important; line-height: 1.55; }
+#adminApp .admin-form input, #adminApp .admin-form select, #adminApp .admin-form textarea,
+#adminApp .admin-search, #adminApp .admin-toolbar input, #adminApp .admin-toolbar select { font-size: 15px !important; min-height: 42px; }
+#adminApp .status-pill { font-size: 12px !important; }
+#adminApp .kpi-value { font-size: 24px; }
+#adminApp .admin-top-actions .btn { font-size: 13px !important; min-height: 42px; }
+#adminApp .analytics-toolbar label, #adminApp .analytics-kpi span, #adminApp .analytics-kpi small,
+#adminApp .analytics-alert b, #adminApp .analytics-alert small, #adminApp .analytics-footnote { font-size: 13px !important; line-height: 1.55; }
+.role-dashboard .role-nav-item { font-size: 14px !important; min-height: 44px; }
+.role-dashboard .role-dashboard-welcome b { font-size: 14px !important; }
+.role-dashboard .role-dashboard-welcome small, .role-dashboard .role-page-title p,
+.role-dashboard .role-panel-head p, .role-dashboard .role-order-meta,
+.role-dashboard .role-order-address, .role-dashboard .role-empty,
+.role-dashboard .role-profile-grid dt, .role-dashboard .role-profile-grid dd { font-size: 14px !important; line-height: 1.6; }
+.role-dashboard .role-kpi>small, .role-dashboard .role-sidebar-note,
+.role-dashboard .role-loading, .role-dashboard .role-favorite-card small { font-size: 13px !important; line-height: 1.55; }
+.role-dashboard .role-status-chip { font-size: 12px !important; }
+.area-multi-picker .area-multi-header, .area-multi-picker .area-multi-header strong { font-size: 15px !important; }
+.area-multi-picker .area-multi-header p, .area-multi-picker .area-picker-action,
+.area-multi-picker .area-selected-chip, .area-multi-picker .area-empty-selection,
+.area-multi-picker .area-picker-help { font-size: 13px !important; line-height: 1.5; }
+.area-multi-picker .area-check-group h3, .area-multi-picker .area-check-option { font-size: 14px !important; }
+
+@media (max-width: 1050px) {
+  .main-nav { display: none !important; }
+}
+@media (max-width: 760px) {
+  .topbar { height: 70px; }
+  .container { width: calc(100% - 30px); }
+  .nav { gap: 8px; }
+  .brand { font-size: 20px; }
+  .brand small { font-size: 9px !important; }
+  .nav-actions .btn-dark { font-size: 14px !important; min-height: 42px; }
+  .nav-actions .account-entry { font-size: 13px !important; min-height: 42px; }
+  .mobile-nav:not(.hidden) { top: 100%; max-height: calc(100dvh - 70px - env(safe-area-inset-top)); padding: 12px 15px max(16px, env(safe-area-inset-bottom)); }
+  .mobile-nav .site-nav-link { font-size: 16px !important; min-height: 52px; padding: 13px 12px; }
+  .mobile-nav .mobile-account-entry, .mobile-nav .mobile-install-entry { font-size: 14px !important; min-height: 48px; }
+  #publicApp .hero-copy > p { font-size: 16px !important; }
+  #publicApp .hero-points { font-size: 13px !important; }
+  #publicApp .hero-metrics span { font-size: 12px !important; }
+  #publicApp .section-heading h2 { font-size: 28px; }
+  #publicApp .section-heading p, #publicApp .barokah-copy p, #publicApp .snackbox-copy p,
+  #publicApp .join-copy > p, #publicApp .step-card p, #publicApp .trust-card p,
+  #publicApp .partner-card p, #publicApp .notice-strip div span { font-size: 15px !important; }
+  #publicApp .barokah-card > .btn, #publicApp .snackbox-card > .btn { width: 100%; min-height: 48px; }
+  #publicApp .catalog-toolbar select { font-size: 14px !important; }
+  #publicApp .product-content h3 { font-size: 16px !important; }
+  #publicApp .product-description { font-size: 14px !important; }
+  #publicApp .footer-bottom { font-size: 13px !important; }
+  #adminApp .admin-content { padding: 18px 13px 30px; }
+  #adminApp .admin-page-title h1 { font-size: 27px; }
+  #adminApp .admin-top-actions .btn { font-size: 13px !important; }
+  .role-dashboard .role-page-title h1 { font-size: 28px; }
+  .role-dashboard .role-dashboard-main { padding: 18px 14px max(28px, env(safe-area-inset-bottom)); }
+  .area-multi-picker .area-check-option { font-size: 14px !important; min-height: 44px; }
+}
+@media (max-width: 420px) {
+  #publicApp .nav-actions .cart-label { display: none; }
+  #publicApp .nav-actions #cartOpenBtn { min-width: 44px; min-height: 44px; padding: 8px; }
+  #publicApp .nav-actions .account-entry { padding: 8px 9px; }
+  #publicApp .hero h1 { font-size: 39px; line-height: 1.12; }
+  #publicApp .hero-metrics { gap: 12px; }
+  #publicApp .hero-metrics strong { font-size: 16px; }
+  #publicApp .product-grid { grid-template-columns: 1fr; }
+  #publicApp .product-image { height: 180px; }
+  #publicApp .product-content { padding: 15px; }
+  #publicApp .product-content h3 { font-size: 18px !important; }
+  #publicApp .product-description { font-size: 15px !important; }
+  .mobile-nav .mobile-nav-tools { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}

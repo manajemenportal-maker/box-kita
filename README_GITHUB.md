@@ -1,34 +1,21 @@
-# BoxKita V22 — GitHub Pages + Firebase Spark
+# BoxKita V23 — Layanan Nasi Box
 
-## Yang berubah pada V22
-- Footer mencantumkan nama badan usaha: **Dikelola oleh PT YANTICHA SURYA KINARYA**.
-- Cache PWA dan referensi aset dinaikkan ke V22 agar footer terbaru dimuat setelah deploy.
+Website PWA BoxKita untuk pelanggan dan mitra kuliner, dengan dashboard administrasi berbasis Firebase.
 
-## Riwayat fitur V21
-- Form iklan mitra menampilkan 23 pilihan wilayah secara langsung dalam kelompok: Jakarta, Tangerang & Tangerang Selatan, Depok, Bekasi, dan Bogor.
-- Mitra dapat memilih banyak area, menekan **Pilih semua wilayah**, atau **Hapus semua pilihan**.
-- Pilihan tampil sebagai chip dan jumlah area terpilih selalu diperbarui.
-- Form iklan mulai tanpa area terpilih; setidaknya satu area harus dicentang sebelum dikirim.
-- Pilihan jamak disimpan pada field `areas` (array). Field `area` juga menyimpan area pertama agar tetap kompatibel dengan data lama.
-- URL aset HTML dan cache service worker dinaikkan ke V21 untuk menghindari versi lama tersaji dari cache.
-- Tidak memerlukan Firebase Storage atau Cloud Functions; gambar tetap dikompres pada browser dan disimpan di Firestore.
+## Perubahan V23
+- Navigasi utama diringkas. Menu **Jumat Barokah** dan **Aneka Kue** tidak lagi ditampilkan pada menu atas; keduanya tetap tersedia sebagai bagian khusus dan kategori katalog.
+- Teks utama, menu navigasi, form, tombol, kartu produk, footer, serta kontrol dashboard diperbesar agar lebih nyaman dibaca.
+- Navigasi mobile dibuat lebih mudah disentuh; pada layar sangat kecil katalog produk memakai satu kolom agar judul dan deskripsi lebih mudah dibaca.
+- Versi aset dan cache PWA diperbarui ke V23.
 
-## Upload website ke GitHub Pages
+## Upload ke GitHub Pages
 1. Ekstrak ZIP ini.
-2. Upload **semua isi folder `BoxKita_GitHub_Pages_v22`** ke root repository GitHub Pages dan timpa file lama.
-3. Commit changes. Pastikan GitHub Pages menggunakan branch `main` dan folder `/(root)`.
-4. Publish Rules: buka Firebase Console → project `box-kita` → Firestore Database → Rules, salin seluruh isi `firestore.rules` dari paket ini, lalu klik **Publish**.
-5. Buka website lagi. Di browser desktop lakukan hard refresh. Di HP, tutup PWA sepenuhnya, buka URL situs melalui Chrome, refresh, lalu buka kembali PWA.
+2. Upload semua isi folder `BoxKita_GitHub_Pages_v23` ke root repository GitHub, timpa file versi sebelumnya.
+3. Commit changes dan pastikan Pages menggunakan branch `main` dan folder `/(root)`.
+4. Pada HP, tutup PWA sepenuhnya, buka website lewat Chrome dan refresh. Jika masih terlihat versi lama, hapus data/cache situs lalu buka ulang PWA.
 
-## Menguji pilihan area iklan
-1. Login dengan akun mitra aktif yang memiliki profil usaha terhubung.
-2. Buka Dashboard Mitra → **Iklan & Promosi**.
-3. Pilihan area akan terlihat langsung di bawah bagian “Jangkauan iklan” — tidak perlu membuka dropdown.
-4. Centang 2 area. Penghitung dan chip area terpilih harus berubah menjadi 2.
-5. Coba **Pilih semua wilayah**, lalu kirim iklan menggunakan foto contoh. Iklan masuk ke status menunggu tinjauan.
-6. Pengelola menyetujui dan menerbitkan iklan. Kartu iklan publik seharusnya menampilkan seluruh wilayah yang dipilih.
+## Firebase
+Konfigurasi Firebase berada pada `app.js`. Aturan akses berada di `firestore.rules`. Jika Rules perlu diperbarui, publikasikan melalui Firebase Console → Firestore Database → Rules. Jangan memasukkan password atau service-account private key ke repository publik.
 
 ## Catatan
-- Aturan Firestore V21 tetap membatasi pengajuan agar hanya mitra yang login dan terhubung dengan profil miliknya yang dapat mengirim iklan.
-- Data publik hanya menampilkan materi promosi. Nomor KTP dan rekening tidak dimasukkan ke iklan.
-- Pemeriksaan sintaks dan struktur lokal dilakukan; pengujian langsung terhadap Firebase project dan perangkat HP pengguna belum dilakukan.
+V23 mengubah tampilan dan navigasi; ia tidak mengubah koleksi atau data pesanan yang sudah tersimpan di Firebase. Login, katalog, iklan, dan transaksi tetap bergantung pada konfigurasi Firebase yang sudah valid.

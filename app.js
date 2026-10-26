@@ -105,7 +105,7 @@ let adminSettingsPrivateCache = {}, adminSettingsPublicCache = {}, supportEmail 
 const byId = id => document.getElementById(id);
 
 // Navigasi situs dibuat satu sumber: link desktop dan mobile menunjuk ke bagian halaman yang sama.
-const SITE_NAV_IDS = ['program-jumat', 'program-box-kita', 'menu', 'promosi-mitra', 'cara', 'mitra', 'gabung'];
+const SITE_NAV_IDS = ['menu', 'promosi-mitra', 'cara', 'mitra', 'gabung'];
 const SITE_NAV_SELECTOR = '[data-site-nav]';
 function closeMobileNav() {
   const panel = byId('mobileNav');
