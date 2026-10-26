@@ -30,6 +30,20 @@ service cloud.firestore {
         'Depok', 'Bekasi', 'Kota Bekasi', 'Kabupaten Bekasi', 'Bogor', 'Kota Bogor', 'Kabupaten Bogor'
       ];
     }
+    function validServiceAreaAt(areas, index) {
+      return areas.size() <= index || validServiceArea(areas[index]);
+    }
+    function validServiceAreas(areas) {
+      return areas is list && areas.size() >= 1 && areas.size() <= 23
+        && validServiceAreaAt(areas, 0) && validServiceAreaAt(areas, 1) && validServiceAreaAt(areas, 2)
+        && validServiceAreaAt(areas, 3) && validServiceAreaAt(areas, 4) && validServiceAreaAt(areas, 5)
+        && validServiceAreaAt(areas, 6) && validServiceAreaAt(areas, 7) && validServiceAreaAt(areas, 8)
+        && validServiceAreaAt(areas, 9) && validServiceAreaAt(areas, 10) && validServiceAreaAt(areas, 11)
+        && validServiceAreaAt(areas, 12) && validServiceAreaAt(areas, 13) && validServiceAreaAt(areas, 14)
+        && validServiceAreaAt(areas, 15) && validServiceAreaAt(areas, 16) && validServiceAreaAt(areas, 17)
+        && validServiceAreaAt(areas, 18) && validServiceAreaAt(areas, 19) && validServiceAreaAt(areas, 20)
+        && validServiceAreaAt(areas, 21) && validServiceAreaAt(areas, 22);
+    }
     function validOrderItem(item) {
       return item is map && item.keys().hasOnly(['productId','qty']) && item.keys().hasAll(['productId','qty'])
         && item.productId is string && item.productId.size() >= 1 && item.productId.size() <= 150
@@ -73,7 +87,7 @@ service cloud.firestore {
     }
     function validPartnerContentSubmission() {
       return signedIn() && isPartner()
-        && request.resource.data.keys().hasOnly(['uid','partnerId','partnerName','type','title','description','area','category','proposedCostPrice','stock','imageUrl','galleryImages','status','source','createdAt','updatedAt'])
+        && request.resource.data.keys().hasOnly(['uid','partnerId','partnerName','type','title','description','area','areas','category','proposedCostPrice','stock','imageUrl','galleryImages','status','source','createdAt','updatedAt'])
         && request.resource.data.keys().hasAll(['uid','partnerId','partnerName','type','title','description','area','category','proposedCostPrice','stock','imageUrl','galleryImages','status','source','createdAt','updatedAt'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.partnerId == myProfile().partnerId
@@ -92,8 +106,12 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time
         && ((request.resource.data.type == 'menu'
           && request.resource.data.category in ['Jumat Barokah','Box Kita','Ayam','Ikan','Sapi','Vegetarian','Paket Hemat','Lainnya']
+          && !request.resource.data.keys().hasAny(['areas'])
           && request.resource.data.proposedCostPrice > 0 && request.resource.data.stock >= 1)
           || (request.resource.data.type == 'promotion'
+          && request.resource.data.keys().hasAny(['areas'])
+          && validServiceAreas(request.resource.data.areas)
+          && request.resource.data.area == request.resource.data.areas[0]
           && request.resource.data.category in ['all','Jumat Barokah','Box Kita','Ayam','Ikan','Sapi','Vegetarian','Paket Hemat']
           && request.resource.data.proposedCostPrice == 0 && request.resource.data.stock == 0));
     }
