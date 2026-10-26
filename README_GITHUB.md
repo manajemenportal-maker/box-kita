@@ -1,39 +1,30 @@
-# BoxKita — Layanan Nasi Box (V20)
+# BoxKita V21 — GitHub Pages + Firebase Spark
 
-Paket ini memperbaiki dashboard mitra agar daftar menu/iklan, riwayat pengajuan, unggah foto, serta profil transaksi tidak hilang hanya karena salah satu query Firestore ditolak. Jika akses diblokir, dashboard menampilkan notifikasi yang dapat ditindaklanjuti. Ada juga perbaikan tautan akun mitra lama berdasarkan UID—hanya ke dokumen usaha yang memuat UID milik akun tersebut.
+## Yang berubah pada V21
+- Form iklan mitra menampilkan 23 pilihan wilayah secara langsung dalam kelompok: Jakarta, Tangerang & Tangerang Selatan, Depok, Bekasi, dan Bogor.
+- Mitra dapat memilih banyak area, menekan **Pilih semua wilayah**, atau **Hapus semua pilihan**.
+- Pilihan tampil sebagai chip dan jumlah area terpilih selalu diperbarui.
+- Form iklan mulai tanpa area terpilih; setidaknya satu area harus dicentang sebelum dikirim.
+- Pilihan jamak disimpan pada field `areas` (array). Field `area` juga menyimpan area pertama agar tetap kompatibel dengan data lama.
+- URL aset HTML dan cache service worker dinaikkan ke V21 untuk menghindari versi lama tersaji dari cache.
+- Tidak memerlukan Firebase Storage atau Cloud Functions; gambar tetap dikompres pada browser dan disimpan di Firestore.
 
-## Isi paket
-- `index.html`, `styles.css`, `app.js`: situs dan dashboard responsif.
-- `manifest.json`, `sw.js`, ikon: PWA.
-- `firestore.rules`: aturan akses versi V20.
-- `firestore.indexes.json`: indeks Firestore.
-- `PRIVASI_DATA_MITRA_V20.md`: ringkasan privasi data mitra.
-- `DIAGNOSA_DASHBOARD_MITRA_V20.md`: cek cepat bila daftar belum muncul.
+## Upload website ke GitHub Pages
+1. Ekstrak ZIP ini.
+2. Upload **semua isi folder `BoxKita_GitHub_Pages_v21`** ke root repository GitHub Pages dan timpa file lama.
+3. Commit changes. Pastikan GitHub Pages menggunakan branch `main` dan folder `/(root)`.
+4. Publish Rules: buka Firebase Console → project `box-kita` → Firestore Database → Rules, salin seluruh isi `firestore.rules` dari paket ini, lalu klik **Publish**.
+5. Buka website lagi. Di browser desktop lakukan hard refresh. Di HP, tutup PWA sepenuhnya, buka URL situs melalui Chrome, refresh, lalu buka kembali PWA.
 
-## Pasang ke GitHub Pages
-1. Ekstrak ZIP dan upload semua isi folder ini ke root repository (jangan unggah ZIP saja).
-2. Commit perubahan; pastikan GitHub Pages menggunakan branch `main` dan folder `/(root)`.
-3. Buka Firebase Console project `box-kita` → Firestore Database → Rules. Tempel seluruh `firestore.rules` V20 dan klik Publish.
-4. Pastikan Email/Password Authentication aktif.
-5. Untuk akun mitra aktif, dokumen `users/{UID}` harus memiliki `role: "partner"`, `active: true`, dan `partnerId` yang sama dengan ID dokumen `partners/{partnerId}`. Dokumen `partners/{partnerId}` harus memiliki field `uid` yang sama dengan UID akun. Jika `partnerId` terlewat tapi field `uid` pada dokumen mitra benar, dashboard dapat menautkannya secara terbatas sesuai Rules V20.
-6. Setelah deploy, pada HP tutup PWA sepenuhnya, buka ulang, dan jika perlu hapus cache/data situs lalu install ulang.
+## Menguji pilihan area iklan
+1. Login dengan akun mitra aktif yang memiliki profil usaha terhubung.
+2. Buka Dashboard Mitra → **Iklan & Promosi**.
+3. Pilihan area akan terlihat langsung di bawah bagian “Jangkauan iklan” — tidak perlu membuka dropdown.
+4. Centang 2 area. Penghitung dan chip area terpilih harus berubah menjadi 2.
+5. Coba **Pilih semua wilayah**, lalu kirim iklan menggunakan foto contoh. Iklan masuk ke status menunggu tinjauan.
+6. Pengelola menyetujui dan menerbitkan iklan. Kartu iklan publik seharusnya menampilkan seluruh wilayah yang dipilih.
 
-## Menu dan iklan mitra
-- Mitra aktif membuka Dashboard Mitra → Menu & Foto atau Iklan & Promosi.
-- Pilih maksimal 3 foto JPG/PNG/WebP (tiap file sumber maksimal 12 MB). Aplikasi mengompres di browser dengan target sekitar 82 KB per foto sebelum disimpan di Firestore.
-- Pengajuan tampil di riwayat status. Pengelola menyetujui menu sambil menentukan harga jual, atau menyetujui dan menerbitkan iklan.
-- Foto disimpan sebagai data gambar dalam Firestore; ini menghindari Firebase Storage, tetapi menggunakan kuota penyimpanan/pembacaan gratis. Sesuai untuk uji awal dengan volume terbatas.
-
-## Profil transaksi mitra
-Form memerlukan nama legal, NIK 16 digit, alamat KTP, alamat domisili, alamat usaha, nomor WhatsApp, nama bank, nama pemilik rekening, dan nomor rekening. NPWP dan cabang bank opsional. Data identitas/rekening tetap di dokumen privat `partners/{partnerId}`, hanya untuk mitra pemilik dan admin aktif; tidak diletakkan dalam katalog publik. Jangan meminta mitra mengirim KTP/rekening melalui pesan publik.
-
-## Diagnosa cepat
-Jika dashboard masih kosong, lihat kotak peringatan di atas tab mitra. Pastikan Rules V20 dipublikasikan, akun berstatus mitra aktif, `partnerId` cocok, dan `partners/{partnerId}.uid` sama dengan UID pengguna. Buka browser console untuk kode `permission-denied` jika perlu.
-
-Paket ini ditujukan untuk Firebase Spark: tanpa Firebase Storage dan Cloud Functions. Transaksi serta pembayaran tetap perlu diuji dan diverifikasi oleh pengelola sebelum digunakan untuk transaksi nyata.
-
-
-## Area layanan iklan (V20)
-- Mitra dapat memilih satu, beberapa, atau seluruh 23 area layanan untuk iklan. Gunakan tombol **Pilih semua wilayah** atau **Hapus pilihan**. Minimal satu area wajib dipilih.
-- Daftar area disimpan sebagai field `areas` (array) dan field `area` tetap berisi area pertama untuk kompatibilitas data lama. Tampilan publik, dashboard mitra, dan panel persetujuan admin menampilkan seluruh area terpilih.
-- Untuk memasang, upload semua file V20 ke root GitHub Pages dan publish isi `firestore.rules` versi V20 di Firebase Console.
+## Catatan
+- Aturan Firestore V21 tetap membatasi pengajuan agar hanya mitra yang login dan terhubung dengan profil miliknya yang dapat mengirim iklan.
+- Data publik hanya menampilkan materi promosi. Nomor KTP dan rekening tidak dimasukkan ke iklan.
+- Pemeriksaan sintaks dan struktur lokal dilakukan; pengujian langsung terhadap Firebase project dan perangkat HP pengguna belum dilakukan.
