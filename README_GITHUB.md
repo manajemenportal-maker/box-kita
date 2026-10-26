@@ -1,41 +1,33 @@
-# BoxKita — Layanan Nasi Box (V17)
+# BoxKita — Layanan Nasi Box (V19)
 
-Website PWA BoxKita untuk layanan nasi box dan aneka kue di Jabodetabek. Paket ini mencakup toko publik serta dashboard pelanggan, mitra, dan pengelola dengan Firebase Authentication dan Cloud Firestore.
+Paket ini memperbaiki dashboard mitra agar daftar menu/iklan, riwayat pengajuan, unggah foto, serta profil transaksi tidak hilang hanya karena salah satu query Firestore ditolak. Jika akses diblokir, dashboard menampilkan notifikasi yang dapat ditindaklanjuti. Ada juga perbaikan tautan akun mitra lama berdasarkan UID—hanya ke dokumen usaha yang memuat UID milik akun tersebut.
 
-## File utama
-- `index.html`, `styles.css`, `app.js`: website dan dashboard responsif.
-- `manifest.json`, `sw.js`, `icon-192.png`, `icon-512.png`: instalasi PWA dan cache aset.
-- `firestore.rules`: aturan akses, termasuk collection privat `adminSettings`.
+## Isi paket
+- `index.html`, `styles.css`, `app.js`: situs dan dashboard responsif.
+- `manifest.json`, `sw.js`, ikon: PWA.
+- `firestore.rules`: aturan akses versi V19.
 - `firestore.indexes.json`: indeks Firestore.
-- `AREA_PENGELOLA_V17.md`: panduan fungsi Area Pengelola.
+- `PRIVASI_DATA_MITRA_V19.md`: ringkasan privasi data mitra.
+- `DIAGNOSA_DASHBOARD_MITRA_V19.md`: cek cepat bila daftar belum muncul.
 
 ## Pasang ke GitHub Pages
-1. Unggah seluruh isi folder paket ini ke root repo GitHub Pages pada branch `main`.
-2. Settings → Pages → Deploy from a branch → `main` → `/(root)`.
-3. Setelah publish, lakukan hard refresh. Tutup dan buka ulang PWA agar cache versi baru termuat.
+1. Ekstrak ZIP dan upload semua isi folder ini ke root repository (jangan unggah ZIP saja).
+2. Commit perubahan; pastikan GitHub Pages menggunakan branch `main` dan folder `/(root)`.
+3. Buka Firebase Console project `box-kita` → Firestore Database → Rules. Tempel seluruh `firestore.rules` V19 dan klik Publish.
+4. Pastikan Email/Password Authentication aktif.
+5. Untuk akun mitra aktif, dokumen `users/{UID}` harus memiliki `role: "partner"`, `active: true`, dan `partnerId` yang sama dengan ID dokumen `partners/{partnerId}`. Dokumen `partners/{partnerId}` harus memiliki field `uid` yang sama dengan UID akun. Jika `partnerId` terlewat tapi field `uid` pada dokumen mitra benar, dashboard dapat menautkannya secara terbatas sesuai Rules V19.
+6. Setelah deploy, pada HP tutup PWA sepenuhnya, buka ulang, dan jika perlu hapus cache/data situs lalu install ulang.
 
-## Agar menu Area Pengelola dapat dipakai
-1. Pada project Firebase `box-kita`, buka Firestore Database → Rules.
-2. Ganti rules dengan isi file `firestore.rules` dari paket ini dan klik **Publish**. Rules V17 menambahkan akses admin-only ke `adminSettings/{document}`.
-3. Login dengan akun yang memiliki dokumen `users/{UID}` dengan `role` string `admin` dan `active` boolean `true`.
-4. Di sidebar dashboard, klik **Area Pengelola**.
-5. Isi nama layanan, WhatsApp dengan format kode negara `62`, email layanan bila ada, serta rincian rekening jika siap digunakan. Klik **Simpan Pengaturan**.
+## Menu dan iklan mitra
+- Mitra aktif membuka Dashboard Mitra → Menu & Foto atau Iklan & Promosi.
+- Pilih maksimal 3 foto JPG/PNG/WebP (tiap file sumber maksimal 12 MB). Aplikasi mengompres di browser dengan target sekitar 82 KB per foto sebelum disimpan di Firestore.
+- Pengajuan tampil di riwayat status. Pengelola menyetujui menu sambil menentukan harga jual, atau menyetujui dan menerbitkan iklan.
+- Foto disimpan sebagai data gambar dalam Firestore; ini menghindari Firebase Storage, tetapi menggunakan kuota penyimpanan/pembacaan gratis. Sesuai untuk uji awal dengan volume terbatas.
 
-## Data settings dan privasi
-- Kontak aman untuk publik: `publicSettings/contact` (nama layanan, WhatsApp, email layanan).
-- Rincian pembayaran privat: `adminSettings/operations` (nama bank, nama pemilik rekening, nomor rekening, instruksi pembayaran). Hanya admin aktif dapat membaca/menulis.
-- Jangan menyimpan detail rekening, password, private key, atau service-account key di repository publik.
+## Profil transaksi mitra
+Form memerlukan nama legal, NIK 16 digit, alamat KTP, alamat domisili, alamat usaha, nomor WhatsApp, nama bank, nama pemilik rekening, dan nomor rekening. NPWP dan cabang bank opsional. Data identitas/rekening tetap di dokumen privat `partners/{partnerId}`, hanya untuk mitra pemilik dan admin aktif; tidak diletakkan dalam katalog publik. Jangan meminta mitra mengirim KTP/rekening melalui pesan publik.
 
-## Menu dashboard pengelola
-- **Ringkasan:** jumlah dan nilai pesanan, omzet terbayar, margin kotor, pekerjaan prioritas.
-- **Pesanan:** konfirmasi ketersediaan, tanggal, status pesanan dan pembayaran pelanggan.
-- **Menu & Harga:** stok, pemasok, harga modal, harga jual, dan foto melalui URL HTTPS.
-- **Mitra & Pendaftar:** meninjau pendaftaran, mengaktifkan/menonaktifkan mitra, dan mengelola data usaha.
-- **Pembayaran Mitra:** mencatat pembayaran pemasok untuk pesanan yang memenuhi syarat.
-- **Analitik & Laporan:** tren omzet, menu terlaris, performa mitra, dan ekspor CSV.
-- **Area Pengelola:** pengaturan kontak, referensi pembayaran privat, status akun, daftar wilayah, dan pintasan ke menu operasional.
+## Diagnosa cepat
+Jika dashboard masih kosong, lihat kotak peringatan di atas tab mitra. Pastikan Rules V19 dipublikasikan, akun berstatus mitra aktif, `partnerId` cocok, dan `partners/{partnerId}.uid` sama dengan UID pengguna. Buka browser console untuk kode `permission-denied` jika perlu.
 
-## Keamanan dan paket gratis
-- Area Pengelola hanya tersedia setelah role `admin` dan status aktif diverifikasi oleh Firebase.
-- Tidak menggunakan Cloud Functions. Pembayaran tetap manual dan harus diverifikasi sebelum status dinyatakan lunas.
-- Pantau kuota gratis Firebase. Firebase Web config bersifat publik pada aplikasi client; keamanan utama berada di Firestore Rules.
+Paket ini ditujukan untuk Firebase Spark: tanpa Firebase Storage dan Cloud Functions. Transaksi serta pembayaran tetap perlu diuji dan diverifikasi oleh pengelola sebelum digunakan untuk transaksi nyata.

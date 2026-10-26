@@ -3,12 +3,25 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function userDocPath(uid) { return /databases/$(database)/documents/users/$(uid); }
+    function partnerDocPath(partnerId) { return /databases/$(database)/documents/partners/$(partnerId); }
     function hasUserProfile() { return signedIn() && exists(userDocPath(request.auth.uid)); }
     function myProfile() { return get(userDocPath(request.auth.uid)).data; }
     function isAdmin() { return hasUserProfile() && myProfile().role == 'admin' && myProfile().active == true; }
     function isCustomer() { return hasUserProfile() && myProfile().role == 'customer' && myProfile().active == true; }
-    function isPartner() { return hasUserProfile() && myProfile().role == 'partner' && myProfile().active == true && myProfile().partnerId is string; }
+    function isActivePartnerAccount() { return hasUserProfile() && myProfile().role == 'partner' && myProfile().active == true; }
+    function isPartner() { return isActivePartnerAccount() && myProfile().partnerId is string; }
     function ownsPartner(partnerId) { return isPartner() && myProfile().partnerId == partnerId; }
+    function validPartnerLinkUpdate(userId) {
+      return signedIn() && request.auth.uid == userId
+        && resource.data.role == 'partner' && resource.data.active == true
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.active == resource.data.active
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['partnerId','updatedAt'])
+        && request.resource.data.partnerId is string
+        && exists(partnerDocPath(request.resource.data.partnerId))
+        && get(partnerDocPath(request.resource.data.partnerId)).data.uid == request.auth.uid
+        && request.resource.data.updatedAt == request.time;
+    }
 
     function validServiceArea(area) {
       return area in [
@@ -47,6 +60,61 @@ service cloud.firestore {
         && request.resource.data.settlementStatus == 'pending' && request.resource.data.stockReserved == false && request.resource.data.stockRestored == false
         && request.resource.data.source == 'public-web' && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time;
     }
+    function validUploadImage(image) {
+      return image is string && image.size() <= 120000
+        && image.matches('^data:image/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+$');
+    }
+    function validGalleryImageAt(images, index) {
+      return images.size() <= index || validUploadImage(images[index]);
+    }
+    function validGalleryImages(images) {
+      return images is list && images.size() <= 2
+        && validGalleryImageAt(images, 0) && validGalleryImageAt(images, 1);
+    }
+    function validPartnerContentSubmission() {
+      return signedIn() && isPartner()
+        && request.resource.data.keys().hasOnly(['uid','partnerId','partnerName','type','title','description','area','category','proposedCostPrice','stock','imageUrl','galleryImages','status','source','createdAt','updatedAt'])
+        && request.resource.data.keys().hasAll(['uid','partnerId','partnerName','type','title','description','area','category','proposedCostPrice','stock','imageUrl','galleryImages','status','source','createdAt','updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.partnerId == myProfile().partnerId
+        && request.resource.data.partnerName is string && request.resource.data.partnerName.size() >= 2 && request.resource.data.partnerName.size() <= 120
+        && request.resource.data.type in ['menu','promotion']
+        && request.resource.data.title is string && request.resource.data.title.size() >= 3 && request.resource.data.title.size() <= 120
+        && request.resource.data.description is string && request.resource.data.description.size() >= 5 && request.resource.data.description.size() <= 700
+        && validServiceArea(request.resource.data.area)
+        && request.resource.data.category is string && request.resource.data.category.size() <= 60
+        && request.resource.data.proposedCostPrice is number && request.resource.data.proposedCostPrice >= 0
+        && request.resource.data.stock is int && request.resource.data.stock >= 0 && request.resource.data.stock <= 10000
+        && validUploadImage(request.resource.data.imageUrl)
+        && validGalleryImages(request.resource.data.galleryImages)
+        && request.resource.data.status == 'pending'
+        && request.resource.data.source == 'partner-dashboard'
+        && request.resource.data.createdAt == request.time && request.resource.data.updatedAt == request.time
+        && ((request.resource.data.type == 'menu'
+          && request.resource.data.category in ['Jumat Barokah','Box Kita','Ayam','Ikan','Sapi','Vegetarian','Paket Hemat','Lainnya']
+          && request.resource.data.proposedCostPrice > 0 && request.resource.data.stock >= 1)
+          || (request.resource.data.type == 'promotion'
+          && request.resource.data.category in ['all','Jumat Barokah','Box Kita','Ayam','Ikan','Sapi','Vegetarian','Paket Hemat']
+          && request.resource.data.proposedCostPrice == 0 && request.resource.data.stock == 0));
+    }
+    function validPartnerPrivateProfile(partnerId) {
+      return ownsPartner(partnerId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['legalName','ktpNumber','identityAddress','residenceAddress','businessAddress','phone','bankName','bankAccountName','bankAccountNo','bankBranch','npwp','profileCompleted','profileConsentAt','updatedAt'])
+        && request.resource.data.legalName is string && request.resource.data.legalName.size() >= 3 && request.resource.data.legalName.size() <= 120
+        && request.resource.data.ktpNumber is string && request.resource.data.ktpNumber.matches('^[0-9]{16}$')
+        && request.resource.data.identityAddress is string && request.resource.data.identityAddress.size() >= 5 && request.resource.data.identityAddress.size() <= 300
+        && request.resource.data.residenceAddress is string && request.resource.data.residenceAddress.size() >= 5 && request.resource.data.residenceAddress.size() <= 300
+        && request.resource.data.businessAddress is string && request.resource.data.businessAddress.size() >= 5 && request.resource.data.businessAddress.size() <= 300
+        && request.resource.data.phone is string && request.resource.data.phone.size() >= 7 && request.resource.data.phone.size() <= 30
+        && request.resource.data.bankName is string && request.resource.data.bankName.size() >= 2 && request.resource.data.bankName.size() <= 80
+        && request.resource.data.bankAccountName is string && request.resource.data.bankAccountName.size() >= 3 && request.resource.data.bankAccountName.size() <= 120
+        && request.resource.data.bankAccountNo is string && request.resource.data.bankAccountNo.matches('^[0-9A-Za-z.-]{5,40}$')
+        && request.resource.data.bankBranch is string && request.resource.data.bankBranch.size() <= 100
+        && request.resource.data.npwp is string && request.resource.data.npwp.size() <= 30
+        && request.resource.data.profileCompleted == true
+        && request.resource.data.profileConsentAt == request.time
+        && request.resource.data.updatedAt == request.time;
+    }
     function validSelfProfile(userId) {
       return signedIn() && request.auth.uid == userId
         && request.resource.data.keys().hasOnly(['role','active','displayName','email','phone','businessName','createdAt','updatedAt'])
@@ -73,7 +141,21 @@ service cloud.firestore {
       allow create, update, delete: if isAdmin();
     }
     match /partners/{partnerId} {
-      allow read: if isAdmin() || ownsPartner(partnerId);
+      // Data identitas dan rekening hanya boleh dibaca admin aktif atau pemilik akun mitra.
+      allow read: if isAdmin() || ownsPartner(partnerId) || (isActivePartnerAccount() && resource.data.uid == request.auth.uid);
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || validPartnerPrivateProfile(partnerId);
+    }
+    // Pengajuan menu/iklan: mitra hanya dapat mengirim dan membaca konten miliknya sendiri.
+    // Mitra tidak dapat menerbitkan sendiri; hanya admin yang mengubah status atau mempublikasikan.
+    match /partnerContentSubmissions/{submissionId} {
+      allow create: if validPartnerContentSubmission();
+      allow read: if isAdmin() || ownsPartner(resource.data.partnerId);
+      allow update, delete: if isAdmin();
+    }
+    // Materi promosi berisi data publik saja, tanpa NIK atau rekening.
+    match /promotions/{promotionId} {
+      allow read: if resource.data.status == 'active' || isAdmin() || (isPartner() && resource.data.partnerId == myProfile().partnerId);
       allow create, update, delete: if isAdmin();
     }
     match /partnerApplications/{applicationId} {
@@ -136,7 +218,8 @@ service cloud.firestore {
       allow create: if isAdmin() || validSelfProfile(userId);
       allow update: if isAdmin() || (signedIn() && request.auth.uid == userId && resource.data.role == 'customer'
         && request.resource.data.role == resource.data.role && request.resource.data.active == resource.data.active
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','phone','updatedAt']));
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName','phone','updatedAt']))
+        || validPartnerLinkUpdate(userId);
       allow delete: if isAdmin();
     }
     // Private operational settings: bank account and admin-only configuration.
